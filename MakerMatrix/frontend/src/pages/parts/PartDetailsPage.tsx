@@ -46,7 +46,8 @@ import type { SupplierConfig } from '@/services/supplier.service'
 import { supplierService } from '@/services/supplier.service'
 import type { Part, Datasheet } from '@/types/parts'
 import type { Category } from '@/types/categories'
-import { getPDFProxyUrl, apiClient } from '@/services/api'
+import { getPDFProxyUrl, apiClient, getErrorMessage } from '@/services/api'
+import { fetchDatasheetBlob, revokeDatasheetBlob } from '@/services/datasheet.service'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 import PartPDFViewer from '@/components/parts/PartPDFViewer'
 import PDFViewer from '@/components/ui/PDFViewer'
@@ -509,14 +510,30 @@ const PartDetailsPage = () => {
     return null
   }
 
-  const downloadDatasheet = (datasheet: Datasheet) => {
-    const url = getDatasheetUrl(datasheet)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = datasheet.original_filename || datasheet.filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const downloadDatasheet = async (datasheet: Datasheet) => {
+    // The /api/utility/static/datasheets/{filename} endpoint requires auth, so
+    // we cannot just set `<a href>` and click — that wouldn't send the Bearer
+    // token. Fetch the bytes via the authenticated apiClient, then trigger a
+    // download from the resulting blob URL.
+    if (!datasheet.filename) return
+    let blobUrl: string | null = null
+    try {
+      blobUrl = await fetchDatasheetBlob(datasheet.filename)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = datasheet.original_filename || datasheet.filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to download datasheet'))
+    } finally {
+      if (blobUrl) {
+        // Give the browser a tick to start the download before revoking.
+        const urlToRevoke = blobUrl
+        setTimeout(() => revokeDatasheetBlob(urlToRevoke), 1000)
+      }
+    }
   }
 
   const viewDatasheet = (datasheet: Datasheet) => {
@@ -2138,17 +2155,28 @@ const PartDetailsPage = () => {
                             View PDF
                           </button>
                           <button
-                            onClick={() => {
-                              const url = getDatasheetUrl()
-                              if (url) {
+                            onClick={async () => {
+                              const filename = part.additional_properties?.datasheet_filename
+                              if (!filename) return
+                              // Authenticated fetch + blob URL — the datasheets
+                              // endpoint now requires a Bearer token, which a
+                              // raw <a href> click cannot supply.
+                              let blobUrl: string | null = null
+                              try {
+                                blobUrl = await fetchDatasheetBlob(String(filename))
                                 const link = document.createElement('a')
-                                link.href = url
-                                link.download =
-                                  String(part.additional_properties.datasheet_filename) ||
-                                  'datasheet.pdf'
+                                link.href = blobUrl
+                                link.download = String(filename) || 'datasheet.pdf'
                                 document.body.appendChild(link)
                                 link.click()
                                 document.body.removeChild(link)
+                              } catch (err) {
+                                toast.error(getErrorMessage(err, 'Failed to download datasheet'))
+                              } finally {
+                                if (blobUrl) {
+                                  const urlToRevoke = blobUrl
+                                  setTimeout(() => revokeDatasheetBlob(urlToRevoke), 1000)
+                                }
                               }
                             }}
                             className="btn btn-secondary text-sm flex items-center justify-center"
