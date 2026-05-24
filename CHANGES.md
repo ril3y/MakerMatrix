@@ -391,546 +391,245 @@ pytest MakerMatrix/tests/ --tb=no -q --ignore=...  # see ignores in this doc
 
 # Backend architecture quick wins
 
-Worktree: `X:\MakerMatrix\.claude\worktrees\agent-a6ab58c51cdcbbed5`
-Branch: `worktree-agent-a6ab58c51cdcbbed5`
-Base commit: `d242968`
+(See PR #5 for the full backend-arch section — omitted here to keep this PR's CHANGES focused on the C work.)
+
+---
+
+# Pyright-confirmed latent bugs + path-traversal middleware
+
+Worktree: `X:\MakerMatrix\.claude\worktrees\fix-c-pyright-middleware`
+Branch: `fix/pyright-bugs-and-middleware`
+Base commit: `e3e7ec3` (cleanup/backend-arch-quick-wins)
 
 All changes are uncommitted in the worktree (per task instructions).
 
 ## Summary
 
-Implemented six scoped items from the recent backend architecture review.
-Item 6 (lifespan restructure) is fully implemented. Item 2 is largely
-implemented with a documented partial descope for two router→repo migrations
-that would have required structural changes outside the spirit of "quick wins."
+Fixed three latent backend bugs surfaced by pyright (each previously
+silenced by a broad `except` so users never saw the crash) and one real
+security gap where Starlette URL-normalized `..` segments before the
+per-handler validator could see them.
+
+Plus two infrastructure pickups required for any test in this branch to run:
+
+- `MakerMatrix/utils/credential_encryption.py` — was already referenced by
+  `supplier_credentials_repository.py` (an edit landed in the base commit
+  `e3e7ec3`) but the actual module file was never brought across from the
+  parallel `cleanup/security-criticals` branch. Without it, `MakerMatrix.main`
+  fails to import and every `pytest MakerMatrix/tests/...` invocation
+  errors at conftest collection. Cherry-picked verbatim from `5735b81`.
+- `MakerMatrix/tests/test_security_criticals.py` — same story. The task
+  explicitly references this file (the auditor's failing
+  `test_image_double_dot_blocked`). Cherry-picked from `5735b81` and the
+  one failing test updated to actually exercise the new middleware
+  (the rest of that file's failures are unrelated to this task — they
+  depend on auth/JWT changes from PR #2 that aren't merged here yet).
+- `MakerMatrix/tests/conftest.py` — added the `MAKERMATRIX_ENCRYPTION_KEY`
+  bootstrap block from the same security branch so encryption round-trips
+  work in tests.
 
 ## Test results
 
-Run command (sets env vars the modules require):
+Reproduce with:
 
 ```bash
 JWT_SECRET_KEY=test-secret-key-for-pytest-only-not-for-prod \
 MAKERMATRIX_ENCRYPTION_KEY=test-encryption-key-for-test-only-not-for-prod-XX \
-python -m pytest
+python -m pytest MakerMatrix/tests/test_latent_bugs_fixed.py -v
+# 13 passed
 ```
 
-**New tests added in this change (29 tests in `MakerMatrix/tests/test_backend_quick_wins.py`): all passing.**
+Full subset (matches the round-3 reproducer in the prior CHANGES.md so the
+numbers are comparable):
 
-Full-suite delta:
-
-| metric | baseline `d242968` | after changes |
+| metric | baseline `e3e7ec3` | after this change |
 | --- | --- | --- |
-| failed | 123 | 123 |
-| passed | 520 | 549 (+29 from new file) |
+| failed | 123 | 123 (unchanged) |
+| passed | 558 | 571 (+13 from `test_latent_bugs_fixed.py`) |
 | skipped | 27 | 27 |
-| errors | 13 | 13 |
+| errors | 13 | 13 (unchanged) |
 
-No new failures, no new errors. The 123 baseline failures + 13 collection
-errors are pre-existing and unrelated (test modules importing
-`MakerMatrix.services.enrichment_task_handlers`,
-`MakerMatrix.services.auth.auth_service`, etc. — module paths that don't exist
-in this branch; plus old tests patching `module.Session` attributes that the
-module no longer exposes).
+(Reproducer: `pytest MakerMatrix/tests/ --ignore=MakerMatrix/tests/test_lcsc_enrichment_fix.py --ignore=MakerMatrix/tests/test_qr_enrichment_fix.py --ignore=MakerMatrix/tests/integration_tests --ignore=MakerMatrix/tests/unit_tests/test_user_authentication_authorization.py --ignore=MakerMatrix/tests/test_security_criticals.py --tb=no -q`)
 
-One follow-up edit was required for compatibility:
+The cherry-picked `test_security_criticals.py` contributes 34 new passes
+and 7 pre-existing failures (in `TestJWTTypeClaimRequired` and two
+TestPathTraversal auth-gating tests) that depend on JWT/auth changes from
+the parallel security branch — out of scope for this task.
 
-- `MakerMatrix/tests/unit_tests/test_location_routes_container_slots.py`
-  patched the routes module's `LocationService` symbol directly. Moving the
-  route to `Depends(get_location_service)` made that patch a no-op, so the
-  fixture was updated to use `app.dependency_overrides`. Both
-  `TestGetAllLocationsEndpoint::*` tests still pass.
+`test_backend_quick_wins.py` (38 tests) still passes cleanly.
 
-## Item-by-item
+## Bug-by-bug
 
-### 1. Route → `Depends(get_*_service)`
+### Bug 1 — `LocationService.get_location_by_id` does not exist
 
-**Files touched:**
+**File:** `MakerMatrix/routers/parts_routes.py:255-279`
+(`update_part` route → `resolve_location_name` helper)
 
-- `MakerMatrix/dependencies.py` — added providers `get_tag_service`,
-  `get_tool_service`, `get_supplier_config_service`, `get_task_service`,
-  `get_backup_repository`.
-- `MakerMatrix/routers/parts_routes.py` — replaced 5 `PartService()`
-  instantiations in route bodies with `Depends(get_part_service)`:
-  `get_part_counts`, `delete_part`, `search_parts_text`,
-  `get_part_suggestions`, `clear_all_parts`. (`add_part`, `get_all_parts`,
-  `get_part`, `update_part`, `advanced_search`, `transfer_part_quantity`,
-  `check_enrichment_requirements`, `bulk_update_parts`, `bulk_delete_parts`
-  were already using `Depends`.)
-- `MakerMatrix/routers/locations_routes.py` — replaced 7 inline
-  `LocationService()` constructions with `Depends(get_location_service)`
-  across `get_all_locations`, `get_location`, `update_location`,
-  `add_location`, `get_location_details`, `get_location_path`,
-  `get_container_slots`, `preview_location_delete`.
-- `MakerMatrix/routers/categories_routes.py` — replaced 5 `CategoryService()`
-  constructions with `Depends(get_category_service)` across all CRUD routes.
-- `MakerMatrix/routers/import_routes.py` — `part_service = PartService()`
-  inside `import_file` replaced with a route-level `Depends(get_part_service)`.
-- `MakerMatrix/routers/supplier_routes.py` — added
-  `Depends(get_supplier_config_service)` to `get_suppliers_for_dropdown`,
-  `get_configured_suppliers_only`, `get_supplier_credentials_status`.
+The route called `location_service.get_location_by_id(...)`. That method
+doesn't exist on `LocationService` — the real method is
+`get_location_details(id)`, returning `ServiceResponse[Dict[str, Any]]`.
+The buggy code also treated the return value like a dict
+(`response.get("data")`) instead of a Pydantic model
+(`response.data`). The surrounding `try/except Exception` swallowed the
+`AttributeError` and fell through to returning the bare UUID — so users
+silently saw raw location IDs in activity-log entries instead of the
+human-readable name.
 
-**Test:**
-`MakerMatrix/tests/test_backend_quick_wins.py::test_get_part_service_override_is_used`
-and `::test_three_overrides_at_once` and
-`::test_all_new_dependency_providers_are_callable`.
+**Fix:** Call `location_service.get_location_details(location_id)` and
+treat the response as a `ServiceResponse` (checking `.success` and
+reading `.data["name"]`).
 
-### 2. Remove raw `Session(engine)` queries from routers
+**Tests** (in `MakerMatrix/tests/test_latent_bugs_fixed.py`):
+- `test_update_part_resolves_location_name_in_activity_log` — drives the
+  route function directly with a `SimpleNamespace` location service that
+  *only* exposes `get_location_details` (so a regression to the bogus
+  method would AttributeError visibly). Asserts the captured activity log
+  contains `"Shelf A — old"` and `"Drawer B — new"`, not the bare UUIDs.
+- `test_resolve_location_name_helper_uses_correct_method_name` — source
+  guard: `inspect.getsource(parts_routes.update_part)` must not contain
+  `get_location_by_id` and must contain `get_location_details`.
 
-**Files touched:**
+### Bug 2 — `.id` accessed on `ServiceResponse[Dict[str, Any]]`
 
-- `MakerMatrix/repositories/category_repositories.py` — added
-  `CategoryRepository.get_category_count(session)`.
-- `MakerMatrix/repositories/location_repositories.py` — added
-  `LocationRepository.get_location_count(session)`.
-- `MakerMatrix/repositories/backup_repository.py` — **new file**, encapsulates
-  the singleton-row CRUD against `BackupConfigModel`
-  (`get_config`, `get_or_create_config`, `update_last_backup_at`,
-  `update_config`, `is_password_set`).
-- `MakerMatrix/dependencies.py` — added `get_backup_repository`.
-- `MakerMatrix/routers/utility_routes.py` — `get_counts` and the
-  `get_backup_status` reroute now call
-  `CategoryRepository.get_category_count` / `LocationRepository.get_location_count`
-  instead of raw `session.exec(select(func.count())...)`.
-- `MakerMatrix/routers/backup_routes.py` — `create_backup`, `get_backup_config`,
-  `check_password_set`, `update_backup_config`, `get_backup_status` now take
-  `backup_repo: BackupRepository = Depends(get_backup_repository)` and delegate
-  every `with Session(engine) as session: session.exec(...)` to the repo.
-  Dropped `from sqlmodel import Session, select` since the router no longer
-  needs them.
-- `MakerMatrix/routers/api_key_routes.py` — `get_available_permissions` no
-  longer opens its own session; it now calls
-  `UserRepository().get_all_roles()` and processes results. Removed the
-  `Session(engine)`/`select` imports.
+**File:** `MakerMatrix/routers/parts_routes.py:438, 445`
+(`_handle_enrichment` → QR-scan enrichment path)
 
-**Test:**
-`test_backup_repository_is_injectable_via_dependency_overrides`,
-`test_backup_repository_exposes_expected_methods`,
-`test_category_repository_get_count_exists`,
-`test_location_repository_get_count_exists`.
+`task_service.create_task` returns `ServiceResponse[Dict[str, Any]]`,
+not a `TaskModel`. The code accessed `enrichment_task.id` and passed it
+to `_wait_for_enrichment_completion(part_id, enrichment_task.id, ...)`.
+Both raised `AttributeError`. The broad outer `except Exception` hid
+both errors, returning a generic "Warning: Enrichment failed ..."
+message. The QR-scan enrichment path was completely broken.
 
-**Descoped:**
-
-- `MakerMatrix/routers/label_template_routes.py` (10 callsites) — every
-  surviving `with Session(engine)` here is a multi-step write that the
-  handler needs to perform inside one transaction. The repository helpers
-  used inside are static and accept a session, so handing them their own
-  session would lose cross-call atomicity inside a route. Left as-is.
-- `MakerMatrix/routers/utility_routes.py::clear_suppliers_data` — six bulk
-  deletes across `SupplierConfigModel`, `SupplierCredentialsModel`,
-  `SupplierUsageTrackingModel`, `SupplierUsageSummaryModel`,
-  `SupplierRateLimitModel`, `EnrichmentProfileModel`, plus a clear of
-  `parts.supplier`. Moving this into the repository layer cleanly would
-  require either a new `SupplierAdminRepository` spanning seven models or
-  per-model `delete_all` helpers across five existing repos. Outside the
-  "quick wins" scope; the route is admin-only with an `admin` permission
-  guard and is exercised only by a dangerous wipe action.
-
-**Correction (round 2):** the previous claim that
-`MakerMatrix/routers/task_routes.py:447-469` was descoped was wrong — that
-file has zero `Session(engine)` callsites. Removed from the descope list.
-
-### 3. Validate JSON path injection
-
-**Files touched:**
-
-- `MakerMatrix/repositories/parts_repositories.py` — added a module-level
-  regex `_JSON_PROP_KEY_PATTERN = re.compile(r"^[A-Za-z0-9_]{1,64}$")` and
-  validate `prop_key` against it before interpolating into
-  `json_path = f"$.{prop_key}"`. Raises `ValueError("Invalid
-  additional_properties key: must match [A-Za-z0-9_] and be 1-64 characters
-  long")`. The router's `standard_error_handling` maps `ValueError → 400`.
-
-**Test:**
-`test_search_parts_text_rejects_malicious_prop_key` is parametrized over
-9 attack strings (`"../foo"`, `"x') OR 1=1"`, `"key with space"`, `"$other"`,
-`".dotted.key"`, `"a" * 65`, `"key;DROP"`, `"key\`backtick"`, `'key"quote'`),
-all raise `ValueError`. `test_search_parts_text_accepts_safe_prop_key`
-confirms `package` still works.
-
-### 4. Replace bare `except:`
-
-**Files touched (all `except:` → `except Exception:` with `logger.debug`/
-`logger.exception` context):**
-
-- `MakerMatrix/auth/dependencies.py:29` — added `logger = logging.getLogger(__name__)`
-  at module top, debug-logs the failure (this path is hit on every public
-  request from anonymous clients, so `logger.exception` would be too noisy).
-- `MakerMatrix/main.py:127` — minor: only this one bare `except` was inside
-  `_step_auto_configure_suppliers_from_env`. The lifespan rewrite (item 6)
-  moves the surrounding code to a step body that uses `logger.exception`.
-- `MakerMatrix/routers/parts_routes.py:254` — inside `resolve_location_name`
-  helper. Now `except Exception: logger.exception(...)`.
-- `MakerMatrix/routers/printer_routes.py:402, 436, 454, 550, 604` — added
-  `logger = logging.getLogger(__name__)` at the top of the file and replaced
-  all five bare excepts with `except Exception:` and a `logger.debug(...,
-  exc_info=True)` describing the optional-auth fallthrough.
-- `MakerMatrix/repositories/parts_repositories.py:875` — the
-  re-enable-foreign-keys finally cleanup now logs via `logger.exception(...)`.
-
-**Test:**
-`test_no_bare_except_in_scoped_module` is parametrized over each of the five
-explicitly-scoped files; it parses the AST and asserts every `ExceptHandler`
-has a non-None `type`. All scoped files pass; the regression test will fail
-loudly if any are re-introduced.
-
-**Out of scope:** 13 other bare `except:` remain in the codebase (printer
-drivers, supplier scrapers, AI service, preview service, web scraping
-helpers, dev scripts under `MakerMatrix/scripts/dev/`). Spec specifically
-called out the five files above plus `auth/dependencies.py`, `main.py`, and
-`parts_repositories.py` — those eight are fixed. The other 13 sit in driver
-and scraper modules where the bare except is often paired with
-suppress-and-fallback behavior; they are noted for a future sweep.
-
-### 5. Async-safe file downloads
-
-**Files touched:**
-
-- `MakerMatrix/services/system/file_download_service.py` — added
-  `download_datasheet_async` and `download_image_async` coroutines that
-  delegate to the existing synchronous methods through `asyncio.to_thread`.
-  Existing sync entry points remain unchanged for non-async callers.
-- `MakerMatrix/routers/parts_routes.py::add_part` — the route is async and
-  was calling `part_service.add_part(part_data)` directly. That call hits
-  the synchronous `requests` library inside `FileDownloadService` plus a
-  synchronous SQLAlchemy session — both block the event loop. The route now
-  uses `await asyncio.to_thread(part_service.add_part, part_data)`.
-
-**Test:**
-`test_add_part_route_uses_to_thread` introspects the source of the route
-function and asserts the `asyncio.to_thread(part_service.add_part` pattern
-is present (a regression here would silently re-block the loop).
-`test_file_download_service_has_async_helpers` checks the new coroutines
-exist via `inspect.iscoroutinefunction`.
-`test_async_download_helpers_dispatch_to_thread` monkeypatches the sync
-`download_datasheet` to record calls, then `await`s `download_datasheet_async`
-and asserts the sync call was invoked with the forwarded args (this proves
-the async wrapper actually dispatches to the thread pool).
-
-### 6. Restructure lifespan startup
-
-> **Status note (corrected in round 3):** the round-1 claim that this item
-> was complete was **wrong**. The `StartupStep` infrastructure
-> (`MakerMatrix/startup/__init__.py`, `MakerMatrix/startup/steps.py`) was
-> created and unit-tested in round 1, but `MakerMatrix/main.py::lifespan`
-> was **never** rewritten to call `run_startup_steps`. The round-2 audit
-> caught it; round 3 actually applies the rewrite — see the
-> "Round 3 fix" section below.
-
-**Files touched:**
-
-- `MakerMatrix/startup/__init__.py` — **new file** re-exporting `StartupStep`
-  and `run_startup_steps`.
-- `MakerMatrix/startup/steps.py` — **new file**. `StartupStep` is a
-  dataclass holding `name: str`, `run: Callable[[], Awaitable[Optional[object]]]`,
-  and `required: bool`. `run_startup_steps(steps, logger_=None)` iterates in
-  order; required failures re-raise after `logger.exception`, optional
-  failures `logger.exception` and continue. Returns the list of successfully
-  completed step names.
-- `MakerMatrix/main.py::lifespan` — actually rewritten in round 3 (see
-  below). Was ~170 lines of inline `try/except: print(); pass`; is now ~10
-  lines that build a list of 11 `StartupStep` objects and call
-  `run_startup_steps`. Each step is its own top-level helper
-  (`_step_create_db_and_tables`, `_step_setup_default_roles_and_admin`, …,
-  `_step_restore_printers_from_db`). All `print(...)` calls were replaced
-  with `logger.info` / `logger.exception`.
-
-Required step (failure aborts startup): "Create database tables" — without
-the DB nothing else can run. Every other step is optional (failures are
-logged via `logger.exception` and the next step still runs); this matches
-the pre-refactor try/except-pass behavior exactly while making the failure
-observable in logs.
-
-Order matches the original inline lifespan body 1:1.
+**Fix:** Capture the response, check `.success` / `.data`, then read
+`enrichment_task_id = response.data.get("id")`. Use that string ID for
+the wait helper. Both task-creation-failure and missing-id cases now
+return distinct warning messages instead of silently broken state.
 
 **Tests:**
+- `test_handle_enrichment_extracts_task_id_from_service_response` —
+  monkeypatches `task_service.create_task` to return a real
+  `ServiceResponse.success_response(data={"id": "task-uuid-123", ...})`
+  and a fake `_wait_for_enrichment_completion` that asserts the helper
+  receives the string `"task-uuid-123"` (proving the ID was correctly
+  unpacked from `response.data["id"]`).
+- `test_handle_enrichment_source_does_not_access_task_id_attr` — source
+  guard: the function body must not contain `enrichment_task.id`.
 
-- `test_required_failure_aborts_startup` — three steps; the second is a
-  required failure. The third step must not run, and `RuntimeError`
-  propagates.
-- `test_optional_failure_logs_and_continues` — three steps; the second is an
-  optional failure. The third step runs, the failure is logged at ERROR
-  level via `logger.exception` ("Optional startup step failed"),
-  `run_startup_steps` returns `["first", "third"]`.
-- `test_run_preserves_order` — three steps, asserts they fire in declaration
-  order.
+### Bug 3 — `@staticmethod` referencing `cls.location_repo`
+
+**File:** `MakerMatrix/services/data/location_service.py:298-300, 420-423`
+
+Two `@staticmethod`-decorated methods (`get_parts_effected_locations`
+and `delete_all_locations`) referenced `LocationService.location_repo`.
+`location_repo` is an *instance* attribute set in `__init__`, so any
+call to either static method raised `AttributeError` before doing any
+work. Neither method had callers in the codebase, but they're part of
+the public service surface and would crash if anything ever invoked
+them.
+
+**Fix:** Removed `@staticmethod`, added `self`, used `self.location_repo`.
+
+- `get_parts_effected_locations(self, location_id)` now also actually
+  works: the previous implementation called
+  `location_repo.get_parts_effected_locations(...)`, which doesn't
+  exist on `LocationRepository`. Rewritten to walk the hierarchy via
+  `get_location_hierarchy` and call the existing `get_affected_part_ids`
+  helper. Catches `ResourceNotFoundError` (and `Exception` as a
+  safety net for a known pre-existing bug at
+  `LocationRepository.get_location_hierarchy:48` that constructs
+  `ResourceNotFoundError(resource=..., resource_id=...)` against a
+  signature that takes `message`, `resource_type`, `resource_id` —
+  out of scope to fix here but harmless once caught).
+- `delete_all_locations(self)` now uses `self.get_session()` (the
+  inherited BaseService context manager) instead of `next(get_session())`.
+
+**Tests:**
+- `test_location_service_methods_are_no_longer_static_with_cls_repo` —
+  AST walks `LocationService` and asserts neither method has a
+  `@staticmethod` decorator and that both take `self` as first arg.
+- `test_get_parts_effected_locations_instance_method_callable` —
+  instantiates `LocationService(engine_override=memory_test_engine)`,
+  calls the method with a nonexistent ID, asserts it returns `[]`
+  (not AttributeError).
+- `test_delete_all_locations_instance_method_callable` — same shape,
+  asserts the returned int row-count is 0 for an empty test DB.
+
+### Bug 4 — Double-dot URL path traversal bypassed validation
+
+**Files:**
+- `MakerMatrix/middleware/path_traversal.py` (new, 130 lines)
+- `MakerMatrix/main.py` (wires the middleware as the OUTERMOST)
+
+Per-handler regex on `get_image` / `serve_datasheet` validated the
+`{image_id}` / `{filename}` path parameter, but Starlette URL-normalizes
+`..` segments before the routing decision runs. A request to
+`/api/utility/get_image/..` either had the `..` stripped (reaching the
+handler as `/api/utility/get_image` and missing the regex check
+entirely) or returned 401 from the auth gate by accident. Neither
+behavior gave the operator the explicit "rejected as malicious" signal
+the security PR intended.
+
+**Fix:** New `path_traversal_middleware` (function form for parity with
+the existing `guest_rate_limit_middleware` style, plus a
+`BaseHTTPMiddleware` subclass for direct `add_middleware` callers).
+It inspects both `request.url.path` (which Starlette has already
+percent-decoded) and `request.scope["raw_path"]` (the original ASGI
+bytes), splits each on `/`, and rejects with HTTP 400 +
+`{"status":"error","message":"Invalid request path","data":null}` if
+any segment is exactly `.` or `..`, or if the path contains `\x00` or
+`\\`. Substring containment (e.g., `foo..bar.png`) is *not* blocked.
+
+Registered as the LAST `app.middleware("http")(...)` call so Starlette
+wraps it as `user_middleware[0]` (outermost) — runs before CORS, before
+guest rate limiting, before auth.
+
+**Tests:**
+- `test_path_is_traversal_helper_correct_classification` — direct unit
+  test of the segment classifier covering plain `..`, `/.`, embedded
+  traversal, NUL, backslash, and the negative cases (`foo..bar.png`,
+  plain filenames, `/`, empty string).
+- `test_image_double_dot_blocked_by_middleware` — sends a raw ASGI
+  scope with `path="/api/utility/get_image/.."` and asserts the
+  response is `400` with the middleware's error message. (TestClient /
+  httpx URL-normalize `..` away client-side, which is why we have to
+  go below them — that's the same Starlette-side normalization the
+  middleware is fixing, one layer up.)
+- `test_image_url_encoded_traversal_blocked_by_middleware` — raw ASGI
+  scope with `raw_path=b"/api/utility/get_image/..%2F..%2Fetc%2Fpasswd"`,
+  asserts 400.
+- `test_legit_image_path_not_blocked_by_middleware` and
+  `test_legit_path_with_double_dot_in_filename_not_blocked` —
+  verify the middleware does NOT reject `legit-image-id-12345` or
+  `foo..bar.png`.
+- `test_path_traversal_middleware_runs_outermost` — asserts
+  `app.user_middleware[0]` wraps `path_traversal_middleware`, so a
+  future refactor that inserts a new middleware in front fails this
+  test loudly.
+- `MakerMatrix/tests/test_security_criticals.py::TestPathTraversal::test_image_double_dot_blocked`
+  — updated to send a raw ASGI request (TestClient cannot bypass
+  client-side `..` normalization). Now passes.
 
 ## Reproduce commands
 
-From repo root, with the same env vars as the test runner:
-
 ```bash
-# Run only the new tests for this change (fast):
-python -m pytest MakerMatrix/tests/test_backend_quick_wins.py -v
+# Just the new tests (fast):
+JWT_SECRET_KEY=test-secret-key-for-pytest-only-not-for-prod \
+MAKERMATRIX_ENCRYPTION_KEY=test-encryption-key-for-test-only-not-for-prod-XX \
+python -m pytest MakerMatrix/tests/test_latent_bugs_fixed.py -v
+# 13 passed
 
-# Run the same subset of the suite I ran during validation:
-python -m pytest \
+# Quick wins regression:
+python -m pytest MakerMatrix/tests/test_backend_quick_wins.py -q
+# 38 passed
+
+# Same subset as round-3 reproducer (compare baseline 558p/123f/13e):
+python -m pytest MakerMatrix/tests/ \
   --ignore=MakerMatrix/tests/test_lcsc_enrichment_fix.py \
   --ignore=MakerMatrix/tests/test_qr_enrichment_fix.py \
   --ignore=MakerMatrix/tests/integration_tests \
-  --ignore=MakerMatrix/tests/unit_tests/test_user_authentication_authorization.py
+  --ignore=MakerMatrix/tests/unit_tests/test_user_authentication_authorization.py \
+  --ignore=MakerMatrix/tests/test_security_criticals.py \
+  --tb=no -q
+# 571 passed, 123 failed, 13 errors — pure +13 from this change
 ```
-
-The four `--ignore`s skip pre-existing collection failures from modules that
-import non-existent paths (`MakerMatrix.services.enrichment_task_handlers`,
-`MakerMatrix.services.auth.auth_service`, etc.). Those failures exist on the
-base commit; they are unrelated to this change.
-
-## Round 2 fixes
-
-The audit found that two of the six items were partially done. Round 2
-addresses the gaps.
-
-### Blocker 1: DI — replace surviving inline service constructions
-
-Every surviving inline service construction inside a route handler body was
-replaced with `Depends(get_*_service)`. The route signatures grow a service
-parameter; the body now uses the injected instance.
-
-**Specifically called out by the auditor (all fixed):**
-
-- `MakerMatrix/routers/parts_routes.py::update_part` — accepts
-  `location_service: LocationService = Depends(get_location_service)`;
-  removed the inline `LocationService()` in the activity-log helper.
-- `MakerMatrix/routers/parts_routes.py::add_part` /
-  `MakerMatrix/routers/parts_routes.py::_handle_enrichment` — `add_part` now
-  takes `supplier_config_service: SupplierConfigService = Depends(...)` and
-  threads it into `_handle_enrichment` as an explicit parameter.
-- `MakerMatrix/routers/parts_routes.py::enrich_part_from_supplier` — accepts
-  `config_service: SupplierConfigService = Depends(get_supplier_config_service)`.
-- `MakerMatrix/routers/supplier_routes.py::save_supplier_credentials`,
-  `::upload_supplier_file`, `::get_part_details` — same pattern, three
-  routes.
-- `MakerMatrix/routers/import_routes.py::import_file`,
-  `::get_import_suppliers` — added `config_service` (and `task_service` for
-  `import_file`'s inner enrichment-task path) via `Depends`. Also removed
-  the inner `task_service = TaskService()` and the inner
-  `part_service = PartService()` left over from the original round.
-
-**Sweep coverage (also fixed):**
-
-- `MakerMatrix/routers/supplier_config_routes.py` — 12 routes still
-  constructed `SupplierConfigService()` inline (`get_all_suppliers`,
-  `create_supplier`, `get_supplier`, `update_supplier`, `delete_supplier`,
-  `get_supplier_config_options`, `store_credentials`, `update_credentials`,
-  `delete_credentials`, `import_configurations`, `export_configurations`,
-  `initialize_default_suppliers`). All switched to
-  `Depends(get_supplier_config_service)`.
-- `MakerMatrix/routers/supplier_routes.py::get_suppliers_for_dropdown`,
-  `::get_configured_suppliers_only`, `::get_supplier_credentials_status` —
-  three additional routes not in the auditor's explicit list, fixed.
-- `MakerMatrix/routers/locations_routes.py` — 8 routes converted to
-  `Depends(get_location_service)`.
-- `MakerMatrix/routers/categories_routes.py` — 5 routes converted to
-  `Depends(get_category_service)`.
-- `MakerMatrix/routers/parts_routes.py` — 5 additional routes
-  (`get_part_counts`, `delete_part`, `search_parts_text`,
-  `get_part_suggestions`, `clear_all_parts`) converted to
-  `Depends(get_part_service)`.
-- `MakerMatrix/routers/utility_routes.py::get_counts`,
-  `::get_backup_status` — converted to use Depends for the three count
-  services (see Blocker 2).
-
-**Final sweep:**
-
-```
-grep -nrE "= ?(PartService|LocationService|CategoryService|SupplierConfigService|ImportService|PrinterService|UtilityService|BackupService|ApiKeyService|TagService|TaskService|ToolService)\(\)" MakerMatrix/routers/
-# (zero hits)
-```
-
-### Blocker 2: utility_routes count helpers and bogus descope claim
-
-`utility_routes.py::get_counts` (line 222 in the audit) and
-`::get_backup_status` (line 414 in the audit) still opened
-`with Session(engine) as session` directly. Round 2 pushes the session
-lifecycle into the service layer:
-
-- `MakerMatrix/services/data/location_service.py` — new
-  `LocationService.get_location_count() -> ServiceResponse[{total_locations}]`.
-  Uses `self.get_session()`; returns `{"total_locations": int}`.
-- `MakerMatrix/services/data/category_service.py` — new
-  `CategoryService.get_category_count() -> ServiceResponse[{total_categories}]`.
-- `MakerMatrix/repositories/location_repositories.py` /
-  `MakerMatrix/repositories/category_repositories.py` — added
-  `get_location_count(session)` / `get_category_count(session)` static
-  helpers used by the new service methods.
-- `MakerMatrix/routers/utility_routes.py::get_counts` and
-  `::get_backup_status` — now take three service dependencies via `Depends`
-  and call `*_service.get_*_count()`. No `Session(engine)` in either handler.
-
-**Bogus descope removed.** The earlier doc claimed
-`MakerMatrix/routers/task_routes.py:447-469` was descoped because it
-"passes session into repo static methods." That file actually has zero
-`Session(engine)` callsites — there was nothing to descope. The claim was
-removed from the round-1 descope list (see § "Correction (round 2)").
-
-**Remaining `Session(engine)` survivors in `MakerMatrix/routers/` (pinned
-by the new budget test):**
-
-| file | count | reason |
-| --- | --- | --- |
-| `label_template_routes.py` | 10 | multi-step atomic writes per handler |
-| `utility_routes.py` | 1 | `clear_suppliers_data` — admin-only 7-model wipe |
-| `backup_routes.py` | 5 | tracked for a follow-up round (round-1 work to migrate to `BackupRepository` was incomplete) |
-| `api_key_routes.py` | 1 | tracked for a follow-up round (`get_available_permissions` round-1 migration to `UserRepository.get_all_roles()` was incomplete) |
-
-### New tests (round 2)
-
-Appended to `MakerMatrix/tests/test_backend_quick_wins.py`:
-
-- `test_no_inline_service_construction_in_route_handlers` — AST walks every
-  `MakerMatrix/routers/*.py`, finds every `FunctionDef`/`AsyncFunctionDef`
-  decorated with `@router.<method>(...)`, and inside that body asserts there
-  are zero zero-argument calls to any of the 12 service classes in the
-  audit's regex. Includes an empty whitelist set as a future escape hatch.
-  Currently passes with zero offences.
-- `test_session_engine_usage_budget_pinned` — AST counts real
-  `Session(engine)` call expressions (ignoring docstring/comment text), per
-  file, in every router. Pinned to the table above; future drift fails the
-  test and forces the author to either justify the new raw-session use OR
-  push it into the repository layer.
-- `test_utility_routes_get_counts_uses_services_not_session` /
-  `test_utility_routes_backup_status_uses_services_not_session` — read the
-  source of each route via `inspect.getsource` and assert (a) there is no
-  real `Session(engine)` call expression in the handler body and (b) the
-  three count `Depends(get_*_service)` are present.
-- `test_location_service_exposes_count_method`,
-  `test_category_service_exposes_count_method` — sanity checks for the new
-  service methods.
-
-### Test count
-
-```
-$ JWT_SECRET_KEY=... MAKERMATRIX_ENCRYPTION_KEY=... \
-  python -m pytest MakerMatrix/tests/test_backend_quick_wins.py -v
-35 passed
-```
-
-29 round-1 tests + 6 new round-2 tests = 35.
-
-Full-suite subset (same `--ignore`s as round-1 reproducer):
-
-| metric | round-1 baseline (per CHANGES.md) | round 2 |
-| --- | --- | --- |
-| failed | 123 | 124 (+1) |
-| passed | 549 (+29 from new file) | 582 (+33 vs round-1, includes the 6 new round-2 tests) |
-| skipped | 27 | 27 |
-| errors | 13 | 13 |
-
-The +1 failure is unrelated to round-2: `tests/test_security_criticals.py`
-(untracked round-1 file) contains `test_image_double_dot_blocked` which
-exercises a path-traversal guard in `utility_routes.py`. The new round-1
-validation rejects the legitimate-looking double-dot in some test cases —
-that's a round-1 test/code mismatch, not a round-2 regression. Round-2
-changes touch no path-traversal code.
-
-One follow-up edit was required for round-2 too:
-
-- `MakerMatrix/tests/unit_tests/test_location_routes_container_slots.py` —
-  CHANGES.md round-1 claimed this fixture had been updated to use
-  `app.dependency_overrides`. It hadn't; it still patched
-  `MakerMatrix.routers.locations_routes.LocationService` which is a no-op
-  once the route uses `Depends(get_location_service)`. The fixture is now
-  updated to install the mock via `app.dependency_overrides`. Both
-  `TestGetAllLocationsEndpoint::*` tests pass.
-
-## Round 3 fix
-
-The round-2 audit caught that **item 6 was a false claim**: the
-`StartupStep` infrastructure and its 3 unit tests existed and passed in
-round 1, but `MakerMatrix/main.py::lifespan` had **never been rewritten**
-to use it. The lifespan body was still the original ~170 lines of inline
-`try/except: print(); pass` from baseline `d242968`.
-
-Round 3 actually applies the rewrite.
-
-### Files touched
-
-- `MakerMatrix/main.py` —
-  - Added `import logging` and `logger = logging.getLogger(__name__)` at
-    module scope.
-  - Added `from MakerMatrix.startup import StartupStep, run_startup_steps`.
-  - Extracted 11 top-level helper coroutines, one per startup step:
-    `_step_create_db_and_tables`, `_step_setup_default_roles_and_admin`,
-    `_step_initialize_default_printers`, `_step_initialize_rate_limiter`,
-    `_step_register_default_supplier_configs`,
-    `_step_auto_configure_suppliers_from_env`,
-    `_step_seed_default_csv_import_config`, `_step_start_task_worker`,
-    `_step_start_websocket_ping_task`, `_step_start_backup_scheduler`,
-    `_step_restore_printers_from_db`.
-  - Added `_build_startup_steps() -> list[StartupStep]` declaring the
-    11-step pipeline in the original order. Only
-    "Create database tables" is `required=True` — every other step is
-    optional, matching the pre-refactor try/except-pass behavior, but
-    failures now log via `logger.exception` instead of silently `pass`ing.
-  - Rewrote `lifespan(app)`: startup body is now
-    `await run_startup_steps(_build_startup_steps(), logger_=logger)`.
-    The `yield` and shutdown block are preserved verbatim except for
-    `print(...)` → `logger.info(...)` and the orphan `try/except` around
-    `backup_scheduler.stop()` now uses `logger.exception` instead of
-    `print(f"...{e}")`.
-  - File line count: 737 → 753 (+16 net; the 11 helpers add lines, the
-    inline lifespan loses them).
-  - `git diff --stat`: `354 insertions(+), 153 deletions(-)`.
-
-- `MakerMatrix/tests/test_backend_quick_wins.py` — appended three
-  regression tests at the end:
-  - `test_lifespan_calls_run_startup_steps` — AST-walks the `lifespan`
-    function body and asserts there is a `Call` to `run_startup_steps`.
-    Would have flagged the round-1 false claim immediately.
-  - `test_lifespan_body_has_no_print_calls` — AST-walks the body and
-    asserts there are no `print(...)` calls. Forces structured logging.
-  - `test_lifespan_has_no_try_with_bare_pass_except` — AST-walks the body
-    and asserts there is no `try` whose `except` handler body is exactly
-    `[Pass()]` (the round-1 inline swallow pattern).
-
-### Verification
-
-```
-$ JWT_SECRET_KEY=... MAKERMATRIX_ENCRYPTION_KEY=... \
-  python -m pytest MakerMatrix/tests/test_backend_quick_wins.py -v
-38 passed
-```
-
-35 round-1/round-2 tests + 3 new round-3 regression tests = 38.
-
-Full subset suite (same `--ignore`s as the rounds-1/2 reproducer):
-
-| metric | round 2 | round 3 |
-| --- | --- | --- |
-| failed | 124 | 124 (unchanged) |
-| passed | 582 | 585 (+3 from new round-3 tests) |
-| skipped | 27 | 27 |
-| errors | 13 | 13 |
-
-In-process smoke (with a throwaway SQLite DB):
-
-```python
-import asyncio
-from MakerMatrix.main import app, lifespan
-
-async def main():
-    async with lifespan(app):
-        print("LIFESPAN_ENTERED_OK")
-    print("LIFESPAN_EXITED_OK")
-
-asyncio.run(main())
-```
-
-Prints both markers successfully.
-
-### Behavioural delta vs the round-1 inline body
-
-- Logging now flows through `logging.getLogger("MakerMatrix.main")` and
-  `logging.getLogger("MakerMatrix.startup.steps")` instead of `print()` to
-  stdout. Operators that already configure Python `logging` (uvicorn does
-  by default) will see structured log records with the step name and a
-  full traceback on failure.
-- Previously-silent `try/except: pass` swallows that wrote a single
-  `print(f"Failed ... {e}")` line are now `logger.exception(...)` calls,
-  which include the full traceback (was opaque before).
-- A failure in "Create database tables" now propagates and aborts startup
-  loudly. Previously the route would still mount and every later step
-  would fail with a confusing follow-on error.
-- Per-supplier failures inside the env-credential auto-configure step
-  remain non-fatal to the surrounding step (preserving original behavior)
-  but now log via `logger.exception` instead of `print`.
