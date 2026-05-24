@@ -14,7 +14,6 @@ from MakerMatrix.models.api_key_models import APIKeyModel, APIKeyCreate, APIKeyU
 from MakerMatrix.models.user_models import UserModel, RoleModel
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
 
-
 logger = logging.getLogger(__name__)
 
 

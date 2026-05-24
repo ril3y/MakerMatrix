@@ -15,7 +15,6 @@ import time
 
 from MakerMatrix.tests.conftest import test_client, admin_auth_headers
 
-
 # Test configuration
 BACKEND_URL = "https://192.168.1.58:8443"
 WS_URL = "wss://192.168.1.58:8443"

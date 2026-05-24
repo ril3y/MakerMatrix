@@ -80,7 +80,7 @@ jobs:
     services:
       # We'll start the backend manually using Python
       python:
-        image: python:3.11
+        image: python:3.12
 
     steps:
     - name: Checkout code
@@ -89,7 +89,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -268,7 +268,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
 
     - name: Setup Node.js
       uses: actions/setup-node@v4

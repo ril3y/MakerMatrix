@@ -20,8 +20,9 @@ services:
       - HOST=0.0.0.0
       - PORT=8080
 
-      # Security (CHANGE THESE IN PRODUCTION!)
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-secret-key-in-production}
+      # Security (REQUIRED — container will refuse to start if unset).
+      # Generate with: python -c "import secrets; print(secrets.token_urlsafe(48))"
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set in your .env (no default permitted)}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
 
       # Application

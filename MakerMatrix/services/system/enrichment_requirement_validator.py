@@ -21,7 +21,6 @@ from MakerMatrix.models.enrichment_requirement_models import (
 )
 from MakerMatrix.suppliers.registry import get_supplier, get_available_suppliers
 
-
 logger = logging.getLogger(__name__)
 
 

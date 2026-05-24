@@ -22,8 +22,12 @@ markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     "critical: marks tests as critical security tests",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "physical_print: marks tests requiring a physical Brother QL printer",
+    "skip_by_default: marks tests as skipped by default (must opt in explicitly)",
 ]
-testpaths = ["MakerMatrix/tests", "MakerMatrix/integration_tests", "MakerMatrix/unit_tests"]
+# MakerMatrix/tests recurses to its integration_tests/ and unit_tests/ subdirs.
+# The repo-root tests/ directory holds backup + security suites and runs by default.
+testpaths = ["MakerMatrix/tests", "tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

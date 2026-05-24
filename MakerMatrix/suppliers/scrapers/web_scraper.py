@@ -204,8 +204,7 @@ class WebScraper:
                 page = await context.new_page()
 
                 # Add anti-detection script
-                await page.add_init_script(
-                    """
+                await page.add_init_script("""
                     Object.defineProperty(navigator, 'webdriver', {
                         get: () => false,
                     });
@@ -215,8 +214,7 @@ class WebScraper:
                         runtime: {},
                         app: {isInstalled: false}
                     };
-                """
-                )
+                """)
 
                 # Set a realistic user agent and headers to appear more like a real browser
                 await page.set_extra_http_headers(

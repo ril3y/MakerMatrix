@@ -21,7 +21,7 @@ psutil>=5.9.0
 fastapi>=0.115.6
 uvicorn==0.27.1
 python-multipart==0.0.22
-pydantic==2.11.0a2
+pydantic==2.11.10
 pillow>=10.3.0
 qrcode==7.4.2
 starlette>=0.47.2

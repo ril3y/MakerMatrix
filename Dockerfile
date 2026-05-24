@@ -20,8 +20,8 @@ RUN npm ci --ignore-scripts
 # Copy frontend source
 COPY MakerMatrix/frontend/ ./
 
-# Build frontend for production (skip type checking for now - TODO: fix TS errors)
-RUN npx vite build
+# Build frontend for production (runs tsc + vite build per package.json)
+RUN npm run build
 
 # Stage 2: Backend Runtime
 FROM python:3.12-slim

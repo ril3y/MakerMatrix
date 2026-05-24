@@ -24,7 +24,6 @@ from MakerMatrix.models.label_template_models import (
 )
 from MakerMatrix.repositories.label_template_repository import LabelTemplateRepository
 
-
 # Define the 7 system templates
 SYSTEM_TEMPLATES = [
     {

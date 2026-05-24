@@ -1,3 +1,4 @@
+// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import React, { useState, useCallback } from 'react'
 import type {
   UseFormProps,
