@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BaseNamedCrudService } from '../baseCrud.service'
 import { enhancedCategoriesService } from '../categories.service.enhanced'
@@ -343,7 +342,7 @@ describe('Base CRUD Service Tests', () => {
 
     it('should build location tree hierarchy', () => {
       const locations = [
-        { id: '1', name: 'Root', parent_id: null, children: [] },
+        { id: '1', name: 'Root', children: [] },
         { id: '2', name: 'Child 1', parent_id: '1', children: [] },
         { id: '3', name: 'Child 2', parent_id: '1', children: [] },
         { id: '4', name: 'Grandchild', parent_id: '2', children: [] },
@@ -351,13 +350,13 @@ describe('Base CRUD Service Tests', () => {
 
       const tree = enhancedLocationsService.buildLocationTree(locations)
       expect(tree).toHaveLength(1) // Only root
-      expect(tree[0].children).toHaveLength(2) // Two children
-      expect(tree[0].children[0].children).toHaveLength(1) // One grandchild
+      expect(tree[0]?.children).toHaveLength(2) // Two children
+      expect(tree[0]?.children?.[0]?.children).toHaveLength(1) // One grandchild
     })
 
     it('should provide location-specific helper methods', () => {
       const locations = [
-        { id: '1', name: 'Root', parent_id: null, children: [] },
+        { id: '1', name: 'Root', children: [] },
         { id: '2', name: 'Child 1', parent_id: '1', children: [] },
         { id: '3', name: 'Child 2', parent_id: '1', children: [] },
       ]
@@ -378,7 +377,6 @@ describe('Base CRUD Service Tests', () => {
         {
           id: '1',
           name: 'Root',
-          parent_id: null,
           children: [
             { id: '2', name: 'Child 1', parent_id: '1', children: [] },
             { id: '3', name: 'Child 2', parent_id: '1', children: [] },

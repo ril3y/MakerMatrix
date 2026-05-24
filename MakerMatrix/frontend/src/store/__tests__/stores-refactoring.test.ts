@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { usePartsStore } from '../partsStore'
 import { useLocationsStore } from '../locationsStore'
@@ -167,7 +166,7 @@ describe('Store Refactoring Tests', () => {
 
     it('should load locations correctly', async () => {
       const mockLocations = [
-        { id: '1', name: 'Location 1', parent_id: null },
+        { id: '1', name: 'Location 1' },
         { id: '2', name: 'Location 2', parent_id: '1' },
       ]
 
@@ -176,7 +175,6 @@ describe('Store Refactoring Tests', () => {
         {
           id: '1',
           name: 'Location 1',
-          parent_id: null,
           children: [{ id: '2', name: 'Location 2', parent_id: '1', children: [] }],
         },
       ])
@@ -190,7 +188,7 @@ describe('Store Refactoring Tests', () => {
     })
 
     it('should create locations correctly', async () => {
-      const mockLocation = { id: '1', name: 'New Location', parent_id: null }
+      const mockLocation = { id: '1', name: 'New Location' }
 
       vi.mocked(locationsService.createLocation).mockResolvedValueOnce(mockLocation)
       vi.mocked(locationsService.getAllLocations).mockResolvedValueOnce([mockLocation])
@@ -199,12 +197,10 @@ describe('Store Refactoring Tests', () => {
       const store = useLocationsStore.getState()
       const result = await store.createLocation({
         name: 'New Location',
-        parent_id: null,
       })
 
       expect(locationsService.createLocation).toHaveBeenCalledWith({
         name: 'New Location',
-        parent_id: null,
       })
       expect(result).toEqual(mockLocation)
       expect(toast.success).toHaveBeenCalledWith('Location created successfully')
@@ -212,7 +208,7 @@ describe('Store Refactoring Tests', () => {
 
     it('should find locations by parent correctly', () => {
       const mockLocations = [
-        { id: '1', name: 'Location 1', parent_id: null },
+        { id: '1', name: 'Location 1' },
         { id: '2', name: 'Location 2', parent_id: '1' },
         { id: '3', name: 'Location 3', parent_id: '1' },
         { id: '4', name: 'Location 4', parent_id: '2' },
@@ -228,7 +224,7 @@ describe('Store Refactoring Tests', () => {
       expect(childrenOf1).toHaveLength(2)
       expect(childrenOf1.map((l) => l.id)).toEqual(['2', '3'])
       expect(rootLocations).toHaveLength(1)
-      expect(rootLocations[0].id).toBe('1')
+      expect(rootLocations[0]?.id).toBe('1')
     })
   })
 

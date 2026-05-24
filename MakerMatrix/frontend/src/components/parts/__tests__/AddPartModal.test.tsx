@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -66,7 +65,6 @@ describe('AddPartModal - Core Functionality', () => {
         name: 'Shelf A',
         description: 'Top shelf',
         location_type: 'shelf',
-        parent_id: null,
       },
     ])
     mockCategoriesService.getAllCategories.mockResolvedValue([

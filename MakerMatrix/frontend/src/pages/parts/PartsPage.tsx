@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { motion } from 'framer-motion'
 import {
   Package,
@@ -1071,9 +1070,9 @@ const PartsPage = () => {
                               )}
                             </button>
                           </div>
-                          {part.additional_properties?.description && (
+                          {Boolean(part.additional_properties?.description) && (
                             <div className="text-sm text-muted truncate max-w-xs">
-                              {String(part.additional_properties.description)}
+                              {String(part.additional_properties?.description)}
                             </div>
                           )}
                         </td>
@@ -1184,9 +1183,9 @@ const PartsPage = () => {
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap text-sm text-secondary">
                           {(part as Part & { tags?: Tag[] }).tags &&
-                          (part as Part & { tags?: Tag[] }).tags.length > 0 ? (
+                          ((part as Part & { tags?: Tag[] }).tags?.length ?? 0) > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {(part as Part & { tags?: Tag[] }).tags.map((tag: Tag) => (
+                              {((part as Part & { tags?: Tag[] }).tags ?? []).map((tag: Tag) => (
                                 <TagBadge
                                   key={tag.id}
                                   tag={tag}

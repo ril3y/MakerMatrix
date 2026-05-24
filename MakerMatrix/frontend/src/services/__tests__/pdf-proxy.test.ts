@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 /**
  * Tests for PDF proxy utility functions.
  *
@@ -8,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock import.meta.env directly
-const mockEnv = {
+const mockEnv: { DEV: boolean; VITE_API_URL: string | undefined } = {
   DEV: true,
   VITE_API_URL: undefined,
 }
