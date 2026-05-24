@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, File, UploadFile, Body, Query, Request, Depends
 from fastapi.responses import StreamingResponse
@@ -9,6 +10,7 @@ from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling, log_activity
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -399,8 +401,8 @@ async def update_printer(printer_id: str, update_data: PrinterRegistration):
         current_user = None
         try:
             current_user = await get_current_user_optional(None)  # TODO: Pass request if available
-        except:
-            pass  # Anonymous update allowed for debug
+        except Exception:
+            logger.debug("Anonymous printer update — optional auth lookup failed", exc_info=True)
 
         await activity_service.log_printer_updated(
             printer_id=printer_id,
@@ -433,8 +435,8 @@ async def delete_printer(printer_id: str, request: Request = None):
         if printer:
             printer_info = printer.get_printer_info()
             printer_name = printer_info.name
-    except:
-        pass
+    except Exception:
+        logger.debug("Failed to fetch printer info before delete", exc_info=True)
 
     # Remove from memory
     success = await printer_manager.unregister_printer(printer_id)
@@ -451,8 +453,8 @@ async def delete_printer(printer_id: str, request: Request = None):
         current_user = None
         try:
             current_user = await get_current_user_optional(request)
-        except:
-            pass  # Anonymous deletion allowed for debug
+        except Exception:
+            logger.debug("Anonymous printer deletion — optional auth lookup failed", exc_info=True)
 
         await activity_service.log_printer_deleted(
             printer_id=printer_id, printer_name=printer_name, user=current_user, request=request
@@ -547,8 +549,8 @@ async def test_printer_connection(printer_id: str, label_size: Optional[str] = Q
         current_user = None
         try:
             current_user = await get_current_user_optional(request)
-        except:
-            pass  # Anonymous test allowed
+        except Exception:
+            logger.debug("Anonymous printer test — optional auth lookup failed", exc_info=True)
 
         printer_info = printer.get_printer_info()
         await activity_service.log_printer_tested(
@@ -601,8 +603,8 @@ async def register_printer(registration: PrinterRegistration, request: Request =
     current_user = None
     try:
         current_user = await get_current_user_optional(request)
-    except:
-        pass  # Anonymous registration allowed for debug
+    except Exception:
+        logger.debug("Anonymous printer registration — optional auth lookup failed", exc_info=True)
 
     # Check if printer already exists
     existing_printer = await printer_manager.get_printer(registration.printer_id)

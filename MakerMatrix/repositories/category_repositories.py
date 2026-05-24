@@ -148,6 +148,19 @@ class CategoryRepository:
         return count
 
     @staticmethod
+    def get_category_count(session: Session) -> int:
+        """
+        Get the total number of categories using an efficient SQL COUNT query.
+
+        Args:
+            session: The database session
+
+        Returns:
+            int: Total number of categories
+        """
+        return session.exec(select(func.count()).select_from(CategoryModel)).one()
+
+    @staticmethod
     def get_all_categories(session: Session) -> List[CategoryModel]:
         """
         Get all categories from the system.

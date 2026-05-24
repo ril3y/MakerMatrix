@@ -1,3 +1,4 @@
+import asyncio
 import os
 import requests
 import hashlib
@@ -138,6 +139,17 @@ class FileDownloadService:
             logger.error(f"Error downloading datasheet from {url}: {e}")
             return None
 
+    async def download_datasheet_async(
+        self, url: str, part_number: str, supplier: str = "", file_uuid: str = None
+    ) -> Optional[Dict[str, Any]]:
+        """Async wrapper for `download_datasheet` that offloads the blocking
+        `requests` + disk I/O onto the default thread pool so it doesn't stall
+        the FastAPI event loop.
+        """
+        return await asyncio.to_thread(
+            self.download_datasheet, url, part_number, supplier, file_uuid
+        )
+
     def download_image(self, url: str, part_number: str, supplier: str = "") -> Optional[Dict[str, Any]]:
         """Download component image and return file info with UUID-based storage"""
         try:
@@ -234,6 +246,15 @@ class FileDownloadService:
         except Exception as e:
             logger.error(f"Error downloading image from {url}: {e}")
             return None
+
+    async def download_image_async(
+        self, url: str, part_number: str, supplier: str = ""
+    ) -> Optional[Dict[str, Any]]:
+        """Async wrapper for `download_image` that offloads the blocking
+        `requests` + disk I/O onto the default thread pool so it doesn't stall
+        the FastAPI event loop.
+        """
+        return await asyncio.to_thread(self.download_image, url, part_number, supplier)
 
     def _sanitize_filename(self, filename: str) -> str:
         """Sanitize filename for filesystem compatibility"""

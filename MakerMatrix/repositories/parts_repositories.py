@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy import func, or_, delete
@@ -15,6 +16,12 @@ from MakerMatrix.exceptions import ResourceNotFoundError, InvalidReferenceError
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Whitelist for additional_properties keys interpolated into a SQLite JSON path
+# (`$.key`). Permits ASCII letters, digits, and underscore; up to 64 chars.
+# Used by `search_parts_text` to block JSON-path injection like `$other` or
+# `."; DROP TABLE parts; --`.
+_JSON_PROP_KEY_PATTERN = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 
 
 # noinspection PyTypeChecker
@@ -584,6 +591,15 @@ class PartRepository:
                 # SQLite JSON syntax: json_extract(additional_properties, '$.key')
                 from sqlalchemy import cast, String, JSON
 
+                # SECURITY: Validate prop_key before interpolating into the JSON
+                # path string. Unsafe keys could break out of the path
+                # expression and inject SQL or alter the query semantics.
+                if not _JSON_PROP_KEY_PATTERN.match(prop_key):
+                    raise ValueError(
+                        "Invalid additional_properties key: must match "
+                        "[A-Za-z0-9_] and be 1-64 characters long"
+                    )
+
                 # Build JSON path
                 json_path = f"$.{prop_key}"
 
@@ -872,8 +888,8 @@ class PartRepository:
             # Re-enable foreign keys even on error
             try:
                 session.exec(text("PRAGMA foreign_keys = ON"))
-            except:
-                pass
+            except Exception:
+                logger.exception("Failed to re-enable SQLite foreign_keys after clear_all_parts error")
             session.rollback()
             raise Exception(f"Failed to clear all parts: {str(e)}")
 

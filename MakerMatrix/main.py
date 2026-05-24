@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import asyncio
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -50,203 +51,222 @@ from MakerMatrix.repositories.user_repository import UserRepository
 from MakerMatrix.services.system.task_service import task_service
 from MakerMatrix.services.system.websocket_service import start_ping_task
 from MakerMatrix.services.printer.printer_manager_service import initialize_default_printers
+from MakerMatrix.startup import StartupStep, run_startup_steps
+
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Startup step implementations.
+#
+# Each step is a top-level `async def` taking no arguments so it can be wrapped
+# in a `StartupStep` and run by `run_startup_steps`. The bodies preserve the
+# behaviour of the previous inline lifespan code 1:1; only:
+#   - `print(...)` is replaced by `logger.info(...)`,
+#   - `try/except: print(); pass` blocks are removed (run_startup_steps handles
+#     optional failures by logging with `logger.exception` and continuing).
+# ---------------------------------------------------------------------------
+
+
+async def _step_create_db_and_tables() -> None:
+    """REQUIRED — without the DB, the rest of the app cannot function."""
+    create_db_and_tables()
+
+
+async def _step_setup_default_roles_and_admin() -> None:
+    user_repo = UserRepository()
+    setup_default_roles(user_repo)
+    setup_default_admin(user_repo)
+
+
+async def _step_initialize_default_printers() -> None:
+    await initialize_default_printers()
+
+
+async def _step_initialize_rate_limiter() -> None:
+    from MakerMatrix.services.rate_limit_service import RateLimitService
+    from MakerMatrix.models.models import engine
+
+    rate_limit_service = RateLimitService(engine)
+    await rate_limit_service.initialize_default_limits()
+
+
+async def _step_register_default_supplier_configs() -> None:
+    from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+
+    config_service = SupplierConfigService()
+    configs = config_service.initialize_default_suppliers()
+    logger.info("Initialized %d supplier configurations", len(configs))
+
+
+async def _step_auto_configure_suppliers_from_env() -> None:
+    from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+    from MakerMatrix.utils.env_credentials import list_available_env_credentials
+    from MakerMatrix.suppliers.registry import get_available_suppliers, get_supplier
+
+    config_service = SupplierConfigService()
+    available_creds = list_available_env_credentials()
+    available_suppliers = get_available_suppliers()
+
+    for supplier_name in available_suppliers:
+        # Check if we have credentials for this supplier
+        supplier_key = supplier_name.replace("-", "").replace("_", "").lower()
+        cred_key = None
+        for cred_supplier in available_creds.keys():
+            if cred_supplier.replace("-", "").replace("_", "").lower() == supplier_key:
+                cred_key = cred_supplier
+                break
+
+        if cred_key and available_creds[cred_key]:
+            try:
+                # Check if supplier is already configured
+                existing_config = None
+                try:
+                    existing_config = config_service.get_supplier_config(supplier_name)
+                except Exception:
+                    # Supplier not found, which is fine - we'll create it
+                    existing_config = None
+
+                if not existing_config:
+                    # Auto-create supplier configuration
+                    supplier_info = get_supplier(supplier_name).get_supplier_info()
+                    config_data = {
+                        "supplier_name": supplier_name,
+                        "display_name": supplier_info.display_name,
+                        "description": supplier_info.description,
+                        "api_type": "rest",
+                        "base_url": getattr(supplier_info, "website_url", "https://api.example.com"),
+                        "enabled": True,
+                        "capabilities": [cap.value for cap in get_supplier(supplier_name).get_capabilities()],
+                    }
+                    config_service.create_supplier_config(config_data)
+                    logger.info(
+                        "Auto-configured supplier: %s (found credentials: %s)",
+                        supplier_name,
+                        list(available_creds[cred_key]),
+                    )
+                else:
+                    logger.info("Supplier %s already configured", supplier_name)
+            except Exception:
+                # Per-supplier failure is non-fatal — log full traceback and
+                # continue with the next supplier. Whole-step failure (e.g.
+                # registry import error) is still caught by run_startup_steps.
+                logger.exception("Failed to auto-configure supplier %s", supplier_name)
+
+
+async def _step_seed_default_csv_import_config() -> None:
+    from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
+    from MakerMatrix.models.models import engine
+    from sqlmodel import Session, select
+
+    session = Session(engine)
+    try:
+        existing_config = session.exec(
+            select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
+        ).first()
+        if not existing_config:
+            default_config = CSVImportConfigModel(
+                id="default",
+                download_datasheets=True,
+                download_images=True,
+                overwrite_existing_files=False,
+                download_timeout_seconds=30,
+                show_progress=True,
+                enable_enrichment=True,
+                auto_create_enrichment_tasks=True,
+                additional_settings={},
+            )
+            session.add(default_config)
+            session.commit()
+            logger.info("Created default CSV import configuration")
+        else:
+            logger.info("Default CSV import configuration already exists")
+    finally:
+        session.close()
+
+
+async def _step_validate_encryption_key() -> None:
+    """Fail loud if MAKERMATRIX_ENCRYPTION_KEY is missing or set to the
+    .env.example placeholder. Runs BEFORE DB setup so a misconfigured
+    deployment refuses to start rather than silently storing supplier API
+    keys in plaintext.
+    """
+    from MakerMatrix.utils.credential_encryption import validate_encryption_key as _validate
+
+    _validate()
+
+
+async def _step_start_task_worker() -> None:
+    asyncio.create_task(task_service.start_worker())
+
+
+async def _step_start_websocket_ping_task() -> None:
+    asyncio.create_task(start_ping_task())
+
+
+async def _step_start_backup_scheduler() -> None:
+    from MakerMatrix.services.system.backup_scheduler import backup_scheduler
+
+    await backup_scheduler.start()
+
+
+async def _step_restore_printers_from_db() -> None:
+    from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
+
+    persistence_service = get_printer_persistence_service()
+    restored_printers = await persistence_service.restore_printers_from_database()
+    logger.info("Restored %d printers from database: %s", len(restored_printers), restored_printers)
+
+
+def _build_startup_steps() -> list[StartupStep]:
+    """Declare the lifespan startup pipeline.
+
+    Order is preserved from the original inline lifespan body. The DB-create
+    step is the only required step — every other step's failure is logged and
+    startup continues, which matches the pre-refactor try/except behavior.
+    """
+    return [
+        StartupStep("Validate credential encryption key", _step_validate_encryption_key, required=True),
+        StartupStep("Create database tables", _step_create_db_and_tables, required=True),
+        StartupStep("Setup default roles and admin user", _step_setup_default_roles_and_admin),
+        StartupStep("Initialize default printers", _step_initialize_default_printers),
+        StartupStep("Initialize rate limiting system", _step_initialize_rate_limiter),
+        StartupStep("Register default supplier configurations", _step_register_default_supplier_configs),
+        StartupStep(
+            "Auto-configure suppliers from environment credentials",
+            _step_auto_configure_suppliers_from_env,
+        ),
+        StartupStep("Seed default CSV import configuration", _step_seed_default_csv_import_config),
+        StartupStep("Start task worker", _step_start_task_worker),
+        StartupStep("Start WebSocket ping task", _step_start_websocket_ping_task),
+        StartupStep("Start backup scheduler", _step_start_backup_scheduler),
+        StartupStep("Restore printers from database", _step_restore_printers_from_db),
+    ]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Starting up...")
-
-    # Fail loud if the credential encryption key is missing or set to the
-    # .env.example placeholder. We do this BEFORE anything else so a
-    # misconfigured deployment refuses to start rather than silently
-    # storing supplier API keys in plaintext.
-    from MakerMatrix.utils.credential_encryption import validate_encryption_key
-
-    validate_encryption_key()
-
-    # Run the database setup
-    create_db_and_tables()
-
-    # Set up default roles and admin user
-    print("Setting up default roles and admin user...")
-    user_repo = UserRepository()
-    setup_default_roles(user_repo)
-    setup_default_admin(user_repo)
-    print("Setup complete!")
-
-    # Initialize default printers
-    print("Initializing default printers...")
-    await initialize_default_printers()
-    print("Default printers initialized!")
-
-    # Initialize rate limiting system
-    print("Initializing rate limiting system...")
-    try:
-        from MakerMatrix.services.rate_limit_service import RateLimitService
-        from MakerMatrix.models.models import engine
-
-        rate_limit_service = RateLimitService(engine)
-        await rate_limit_service.initialize_default_limits()
-        print("Rate limiting system initialized!")
-    except Exception as e:
-        print(f"Failed to initialize rate limiting: {e}")
-        # Don't fail startup if rate limiting initialization fails
-
-    # Initialize default supplier configurations
-    print("Initializing default supplier configurations...")
-    try:
-        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-
-        config_service = SupplierConfigService()
-        # Initialize default suppliers (will skip if they already exist)
-        configs = config_service.initialize_default_suppliers()
-        print(f"Initialized {len(configs)} supplier configurations")
-
-        print("Default supplier initialization completed!")
-    except Exception as e:
-        print(f"Failed to initialize default suppliers: {e}")
-        # Don't fail startup if supplier initialization fails
-
-    # Auto-initialize suppliers with environment credentials
-    print("Auto-initializing suppliers with environment credentials...")
-    try:
-        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-        from MakerMatrix.utils.env_credentials import list_available_env_credentials
-        from MakerMatrix.suppliers.registry import get_available_suppliers, get_supplier
-
-        config_service = SupplierConfigService()
-        available_creds = list_available_env_credentials()
-        available_suppliers = get_available_suppliers()
-
-        for supplier_name in available_suppliers:
-            # Check if we have credentials for this supplier
-            supplier_key = supplier_name.replace("-", "").replace("_", "").lower()
-            cred_key = None
-            for cred_supplier in available_creds.keys():
-                if cred_supplier.replace("-", "").replace("_", "").lower() == supplier_key:
-                    cred_key = cred_supplier
-                    break
-
-            if cred_key and available_creds[cred_key]:
-                try:
-                    # Check if supplier is already configured
-                    existing_config = None
-                    try:
-                        existing_config = config_service.get_supplier_config(supplier_name)
-                    except:
-                        # Supplier not found, which is fine - we'll create it
-                        pass
-
-                    if not existing_config:
-                        # Auto-create supplier configuration
-                        supplier_info = get_supplier(supplier_name).get_supplier_info()
-                        config_data = {
-                            "supplier_name": supplier_name,
-                            "display_name": supplier_info.display_name,
-                            "description": supplier_info.description,
-                            "api_type": "rest",
-                            "base_url": getattr(supplier_info, "website_url", "https://api.example.com"),
-                            "enabled": True,
-                            "capabilities": [cap.value for cap in get_supplier(supplier_name).get_capabilities()],
-                        }
-                        config_service.create_supplier_config(config_data)
-                        print(
-                            f"Auto-configured supplier: {supplier_name} (found credentials: {list(available_creds[cred_key])})"
-                        )
-                    else:
-                        print(f"Supplier {supplier_name} already configured")
-                except Exception as supplier_error:
-                    print(f"Failed to auto-configure supplier {supplier_name}: {supplier_error}")
-
-        print("Supplier auto-initialization completed!")
-    except Exception as e:
-        print(f"Failed to auto-initialize suppliers: {e}")
-        # Don't fail startup if supplier initialization fails
-
-    # Initialize default CSV import configuration
-    print("Initializing default CSV import configuration...")
-    try:
-        from MakerMatrix.models.csv_import_config_model import CSVImportConfigModel
-        from MakerMatrix.models.models import engine
-        from sqlmodel import Session, select
-
-        session = Session(engine)
-        try:
-            existing_config = session.exec(
-                select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
-            ).first()
-            if not existing_config:
-                default_config = CSVImportConfigModel(
-                    id="default",
-                    download_datasheets=True,
-                    download_images=True,
-                    overwrite_existing_files=False,
-                    download_timeout_seconds=30,
-                    show_progress=True,
-                    enable_enrichment=True,
-                    auto_create_enrichment_tasks=True,
-                    additional_settings={},
-                )
-                session.add(default_config)
-                session.commit()
-                print("Created default CSV import configuration!")
-            else:
-                print("Default CSV import configuration already exists")
-        finally:
-            session.close()
-    except Exception as e:
-        print(f"Failed to initialize CSV import config: {e}")
-        # Don't fail startup if CSV config initialization fails
-
-    # Start the task worker (after all setup is complete)
-    print("Starting task worker...")
-    asyncio.create_task(task_service.start_worker())
-    print("Task worker started!")
-
-    # Start WebSocket ping task
-    print("Starting WebSocket ping task...")
-    asyncio.create_task(start_ping_task())
-    print("WebSocket service started!")
-
-    # Start backup scheduler
-    print("Starting backup scheduler...")
-    try:
-        from MakerMatrix.services.system.backup_scheduler import backup_scheduler
-
-        await backup_scheduler.start()
-        print("Backup scheduler started successfully!")
-    except Exception as e:
-        print(f"Failed to start backup scheduler: {e}")
-        # Don't fail startup if backup scheduler fails
-
-    # Restore printers from database
-    print("Restoring printers from database...")
-    try:
-        from MakerMatrix.services.printer.printer_persistence_service import get_printer_persistence_service
-
-        persistence_service = get_printer_persistence_service()
-        restored_printers = await persistence_service.restore_printers_from_database()
-        print(f"Restored {len(restored_printers)} printers from database: {restored_printers}")
-    except Exception as e:
-        print(f"Failed to restore printers from database: {e}")
-        # Don't fail startup if printer restoration fails
+    logger.info("Starting up...")
+    await run_startup_steps(_build_startup_steps(), logger_=logger)
+    logger.info("Startup complete")
 
     yield  # App continues running
 
-    print("Shutting down...")
+    logger.info("Shutting down...")
 
     # Stop backup scheduler on shutdown
     try:
         from MakerMatrix.services.system.backup_scheduler import backup_scheduler
 
         await backup_scheduler.stop()
-        print("Backup scheduler stopped!")
-    except Exception as e:
-        print(f"Failed to stop backup scheduler: {e}")
+        logger.info("Backup scheduler stopped")
+    except Exception:
+        logger.exception("Failed to stop backup scheduler")
 
     # Stop the task worker on shutdown
     await task_service.stop_worker()
-    print("Task worker stopped!")
+    logger.info("Task worker stopped")
 
 
 # Initialize the FastAPI app with lifespan

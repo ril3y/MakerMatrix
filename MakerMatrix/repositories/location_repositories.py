@@ -19,6 +19,19 @@ class LocationRepository:
         return session.exec(select(LocationModel).options(selectinload(LocationModel.parent))).all()
 
     @staticmethod
+    def get_location_count(session: Session) -> int:
+        """
+        Get the total number of locations using an efficient SQL COUNT query.
+
+        Args:
+            session: The database session
+
+        Returns:
+            int: Total number of locations
+        """
+        return session.exec(select(func.count()).select_from(LocationModel)).one()
+
+    @staticmethod
     def delete_location(session: Session, location: LocationModel):
         session.delete(location)
         session.commit()

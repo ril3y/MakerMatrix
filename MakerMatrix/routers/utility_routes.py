@@ -50,6 +50,11 @@ def _safe_resolve_within(base_dir: Path, name: str) -> Path:
 from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.services.data.location_service import LocationService
 from MakerMatrix.services.data.part_service import PartService
+from MakerMatrix.dependencies import (
+    get_category_service,
+    get_location_service,
+    get_part_service,
+)
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.database.db import DATABASE_URL
 from MakerMatrix.auth.dependencies import get_current_user
@@ -258,21 +263,24 @@ async def debug_server_info():
 
 @router.get("/get_counts", response_model=ResponseSchema)
 @standard_error_handling
-async def get_counts():
+async def get_counts(
+    part_service: PartService = Depends(get_part_service),
+    location_service: LocationService = Depends(get_location_service),
+    category_service: CategoryService = Depends(get_category_service),
+):
     """
-    Returns all counts for parts, locations, and categories using efficient SQL COUNT queries
+    Returns all counts for parts, locations, and categories using efficient SQL COUNT queries.
+
+    Sessions are owned by the services (via BaseService.get_session()); the
+    router never opens a database session directly.
     """
-    # Use repositories directly for efficient counting (SQL COUNT instead of fetching all records)
-    from MakerMatrix.repositories.parts_repositories import PartRepository
-    from sqlalchemy import func
+    parts_response = part_service.get_part_counts()
+    locations_response = location_service.get_location_count()
+    categories_response = category_service.get_category_count()
 
-    with Session(engine) as session:
-        # Use existing efficient count method for parts
-        parts_count = PartRepository.get_part_counts(session)
-
-        # Use direct SQL COUNT for locations and categories (more efficient than fetching all)
-        locations_count = session.exec(select(func.count()).select_from(LocationModel)).one()
-        categories_count = session.exec(select(func.count()).select_from(CategoryModel)).one()
+    parts_count = parts_response.data["total_parts"] if parts_response.success else 0
+    locations_count = locations_response.data["total_locations"] if locations_response.success else 0
+    categories_count = categories_response.data["total_categories"] if categories_response.success else 0
 
     return base_router.build_success_response(
         message="Counts retrieved successfully",
@@ -425,7 +433,11 @@ async def export_data_json():
 
 @router.get("/backup/status", response_model=ResponseSchema)
 @standard_error_handling
-async def get_backup_status():
+async def get_backup_status(
+    part_service: PartService = Depends(get_part_service),
+    location_service: LocationService = Depends(get_location_service),
+    category_service: CategoryService = Depends(get_category_service),
+):
     """Get backup status and database information"""
     # Get database path - try multiple resolution strategies
     db_path_raw = DATABASE_URL.replace("sqlite:///", "")
@@ -456,17 +468,14 @@ async def get_backup_status():
     file_size = stat.st_size
     last_modified = datetime.fromtimestamp(stat.st_mtime)
 
-    # Get table counts using repositories directly (more efficient than services)
-    from MakerMatrix.repositories.parts_repositories import PartRepository
-    from sqlalchemy import func
+    # Get table counts via services so the router never opens a DB session.
+    parts_response = part_service.get_part_counts()
+    locations_response = location_service.get_location_count()
+    categories_response = category_service.get_category_count()
 
-    with Session(engine) as session:
-        # Use existing efficient count method for parts
-        parts_count = PartRepository.get_part_counts(session)
-
-        # Use direct SQL COUNT for locations and categories (more efficient)
-        locations_count = session.exec(select(func.count()).select_from(LocationModel)).one()
-        categories_count = session.exec(select(func.count()).select_from(CategoryModel)).one()
+    parts_count = parts_response.data["total_parts"] if parts_response.success else 0
+    locations_count = locations_response.data["total_locations"] if locations_response.success else 0
+    categories_count = categories_response.data["total_categories"] if categories_response.success else 0
 
     return base_router.build_success_response(
         message="Backup status retrieved successfully",

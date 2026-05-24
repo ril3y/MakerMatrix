@@ -24,6 +24,7 @@ from MakerMatrix.suppliers.exceptions import (
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+from MakerMatrix.dependencies import get_supplier_config_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -88,7 +89,10 @@ async def get_available_suppliers(current_user: UserModel = Depends(get_current_
 
 @router.get("/dropdown", response_model=ResponseSchema[List[Dict[str, Any]]])
 @standard_error_handling
-async def get_suppliers_for_dropdown(current_user: UserModel = Depends(get_current_user)):
+async def get_suppliers_for_dropdown(
+    current_user: UserModel = Depends(get_current_user),
+    supplier_service: SupplierConfigService = Depends(get_supplier_config_service),
+):
     """
     Get suppliers formatted for dropdown selection (configured and enabled only)
 
@@ -97,10 +101,6 @@ async def get_suppliers_for_dropdown(current_user: UserModel = Depends(get_curre
     - Properly configured with credentials (if applicable)
     - Currently enabled
     """
-    from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-
-    supplier_service = SupplierConfigService()
-
     # Get all available suppliers from registry
     available_suppliers = SupplierRegistry.get_available_suppliers()
 
@@ -160,12 +160,11 @@ async def get_suppliers_for_dropdown(current_user: UserModel = Depends(get_curre
 
 @router.get("/configured", response_model=ResponseSchema[List[Dict[str, Any]]])
 @standard_error_handling
-async def get_configured_suppliers_only(current_user: UserModel = Depends(get_current_user)):
+async def get_configured_suppliers_only(
+    current_user: UserModel = Depends(get_current_user),
+    supplier_service: SupplierConfigService = Depends(get_supplier_config_service),
+):
     """Get list of configured and enabled suppliers only"""
-    from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-
-    supplier_service = SupplierConfigService()
-
     # Get only enabled and configured suppliers
     configured_suppliers = supplier_service.get_all_supplier_configs(enabled_only=True)
 
@@ -303,11 +302,14 @@ async def get_supplier_credential_schema(supplier_name: str, current_user: UserM
 
 @router.get("/{supplier_name}/credentials/status", response_model=ResponseSchema[Dict[str, Any]])
 @standard_error_handling
-async def get_supplier_credentials_status(supplier_name: str, current_user: UserModel = Depends(get_current_user)):
+async def get_supplier_credentials_status(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user),
+    supplier_config_service: SupplierConfigService = Depends(get_supplier_config_service),
+):
     """Get the current credential configuration status for a supplier"""
     try:
         # Use supplier config service to create properly configured supplier instance
-        supplier_config_service = SupplierConfigService()
         config = supplier_config_service.get_supplier_config(supplier_name)
         credentials = supplier_config_service.get_supplier_credentials(supplier_name)
         supplier = supplier_config_service._create_api_client(config, credentials)
@@ -376,19 +378,18 @@ async def get_supplier_credentials_status(supplier_name: str, current_user: User
 @router.post("/{supplier_name}/credentials", response_model=ResponseSchema[Dict[str, str]])
 @standard_error_handling
 async def save_supplier_credentials(
-    supplier_name: str, credentials_data: Dict[str, Any], current_user: UserModel = Depends(get_current_user)
+    supplier_name: str,
+    credentials_data: Dict[str, Any],
+    current_user: UserModel = Depends(get_current_user),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Save credentials for a supplier"""
     try:
-        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-
         # Extract credentials from the request body
         credentials = credentials_data.get("credentials", {})
 
         if not credentials:
             raise HTTPException(status_code=400, detail="No credentials provided")
-
-        service = SupplierConfigService()
 
         # Use credentials as-is without mapping to maintain consistency with credential schema
         mapped_credentials = credentials
@@ -424,16 +425,13 @@ async def upload_supplier_file(
     supplier_name: str,
     file: UploadFile = File(...),
     current_user: UserModel = Depends(get_current_user),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Upload a file for a supplier configuration"""
     try:
-        from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
-
         if not file:
             raise HTTPException(status_code=400, detail="No file provided")
 
-        service = SupplierConfigService()
-        
         # Read file content
         content = await file.read()
         
@@ -882,6 +880,7 @@ async def get_part_details(
     part_number: str,
     config_request: SupplierConfigurationRequest,
     current_user: UserModel = Depends(get_current_user),
+    supplier_config_service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Get detailed information about a specific part"""
     supplier = None
@@ -892,7 +891,6 @@ async def get_part_details(
 
         if not credentials or not any(credentials.values()):
             # No credentials provided - try to use stored credentials
-            supplier_config_service = SupplierConfigService()
             try:
                 stored_config = supplier_config_service.get_supplier_config(supplier_name)
                 stored_credentials = supplier_config_service.get_supplier_credentials(supplier_name)

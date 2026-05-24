@@ -9,6 +9,7 @@ from MakerMatrix.models.models import LocationUpdate
 from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.services.data.location_service import LocationService
+from MakerMatrix.dependencies import get_location_service
 from MakerMatrix.auth.dependencies import get_current_user, oauth2_scheme
 from MakerMatrix.auth.guards import require_permission, require_admin
 from MakerMatrix.models.user_models import UserModel
@@ -49,9 +50,9 @@ base_router = BaseRouter()
 @router.get("/get_all_locations", response_model=ResponseSchema)
 @standard_error_handling
 async def get_all_locations(
-    hide_auto_slots: bool = Query(False, description="Hide auto-generated container slots")
+    hide_auto_slots: bool = Query(False, description="Hide auto-generated container slots"),
+    location_service: LocationService = Depends(get_location_service),
 ) -> ResponseSchema[List[Dict[str, Any]]]:
-    location_service = LocationService()
     service_response = location_service.get_all_locations()
 
     validate_service_response(service_response)
@@ -93,11 +94,14 @@ async def get_all_locations(
 
 @router.get("/get_location", response_model=ResponseSchema)
 @standard_error_handling
-async def get_location(location_id: Optional[str] = None, name: Optional[str] = None) -> ResponseSchema[Dict[str, Any]]:
+async def get_location(
+    location_id: Optional[str] = None,
+    name: Optional[str] = None,
+    location_service: LocationService = Depends(get_location_service),
+) -> ResponseSchema[Dict[str, Any]]:
     if not location_id and not name:
         raise HTTPException(status_code=400, detail="Either 'location_id' or 'name' must be provided")
 
-    location_service = LocationService()
     location_query = LocationQueryModel(id=location_id, name=name)
     service_response = location_service.get_location(location_query)
 
@@ -116,6 +120,7 @@ async def update_location(
     location_data: LocationUpdate,
     request: Request,
     current_user: UserModel = Depends(require_permission("locations:update")),
+    location_service: LocationService = Depends(get_location_service),
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Update a location's fields. This endpoint can update any combination of name, description, parent_id, and location_type.
@@ -134,7 +139,6 @@ async def update_location(
     update_data = location_data.model_dump(exclude_unset=True)
     print(f"[DEBUG] Update data being sent to service: {update_data}")
 
-    location_service = LocationService()
     service_response = location_service.update_location(location_id, update_data)
 
     validate_service_response(service_response)
@@ -191,9 +195,8 @@ async def add_location(
     location_data: LocationCreateRequest,
     request: Request,
     current_user: UserModel = Depends(require_permission("locations:create")),
+    location_service: LocationService = Depends(get_location_service),
 ) -> ResponseSchema[Dict[str, Any]]:
-    location_service = LocationService()
-
     # Check if this is a container creation with slots
     if location_data.slot_count is not None and location_data.slot_count > 0:
         # Use container creation method
@@ -255,7 +258,10 @@ async def add_location(
 
 @router.get("/get_location_details/{location_id}", response_model=ResponseSchema)
 @standard_error_handling
-async def get_location_details(location_id: str) -> ResponseSchema[Dict[str, Any]]:
+async def get_location_details(
+    location_id: str,
+    location_service: LocationService = Depends(get_location_service),
+) -> ResponseSchema[Dict[str, Any]]:
     """
     Get detailed information about a location, including its children.
 
@@ -265,7 +271,6 @@ async def get_location_details(location_id: str) -> ResponseSchema[Dict[str, Any
     Returns:
         ResponseSchema: A response containing the location details and its children.
     """
-    location_service = LocationService()
     service_response = location_service.get_location_details(location_id)
 
     validate_service_response(service_response)
@@ -275,7 +280,10 @@ async def get_location_details(location_id: str) -> ResponseSchema[Dict[str, Any
 
 @router.get("/get_location_path/{location_id}", response_model=ResponseSchema)
 @standard_error_handling
-async def get_location_path(location_id: str) -> ResponseSchema[List[Dict[str, Any]]]:
+async def get_location_path(
+    location_id: str,
+    location_service: LocationService = Depends(get_location_service),
+) -> ResponseSchema[List[Dict[str, Any]]]:
     """Get the full path from a location to its root.
 
     Args:
@@ -284,7 +292,6 @@ async def get_location_path(location_id: str) -> ResponseSchema[List[Dict[str, A
     Returns:
         A ResponseSchema containing the location path with parent references
     """
-    location_service = LocationService()
     service_response = location_service.get_location_path(location_id)
 
     validate_service_response(service_response)
@@ -295,7 +302,9 @@ async def get_location_path(location_id: str) -> ResponseSchema[List[Dict[str, A
 @router.get("/get_container_slots/{container_id}", response_model=ResponseSchema)
 @standard_error_handling
 async def get_container_slots(
-    container_id: str, include_occupancy: bool = Query(True, description="Include occupancy information for each slot")
+    container_id: str,
+    include_occupancy: bool = Query(True, description="Include occupancy information for each slot"),
+    location_service: LocationService = Depends(get_location_service),
 ) -> ResponseSchema[List[Dict[str, Any]]]:
     """
     Get all slots for a container with optional occupancy information.
@@ -316,7 +325,6 @@ async def get_container_slots(
             - total_quantity: int (sum of all quantities)
             - parts: list of {part_id, quantity, is_primary}
     """
-    location_service = LocationService()
     service_response = location_service.get_container_slots(container_id, include_occupancy)
 
     validate_service_response(service_response)
@@ -326,7 +334,10 @@ async def get_container_slots(
 
 @router.get("/preview-location-delete/{location_id}", response_model=ResponseSchema)
 @standard_error_handling
-async def preview_location_delete(location_id: str) -> ResponseSchema:
+async def preview_location_delete(
+    location_id: str,
+    location_service: LocationService = Depends(get_location_service),
+) -> ResponseSchema:
     """
     Preview what will be affected when deleting a location.
 
@@ -336,7 +347,6 @@ async def preview_location_delete(location_id: str) -> ResponseSchema:
     Returns:
         ResponseSchema: A response containing the preview information
     """
-    location_service = LocationService()
     service_response = location_service.preview_location_delete(location_id)
 
     validate_service_response(service_response)
