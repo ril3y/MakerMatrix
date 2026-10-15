@@ -183,11 +183,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         .filter((s: ImportSupplierData) => s.enrichment_available === true)
         .map((s: ImportSupplierData) => s.name.toLowerCase())
       setSuppliersWithEnrichment(enrichmentNames)
-
-      console.log('🔍 Smart Supplier Detection Setup:')
-      console.log('  Configured suppliers:', configuredNames)
-      console.log('  Available suppliers from registry:', availableNames)
-      console.log('  Suppliers with enrichment:', enrichmentNames)
     } catch (error) {
       console.error('Failed to load data:', error)
       toast.error('Failed to load data')
@@ -207,11 +202,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       setLoadingSupplierFields(true)
       // Get enrichment requirements for the supplier (404 is expected for new-style suppliers)
       const response = await partsService.getSupplierEnrichmentRequirements(supplierName)
-
-      // Only log if we actually got requirements (not the empty fallback)
-      if (response.required_fields && response.required_fields.length > 0) {
-        console.log('Enrichment requirements response:', response)
-      }
 
       // Check if response and required_fields exist
       if (!response || !response.required_fields || response.required_fields.length === 0) {
@@ -243,16 +233,11 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         })
       )
 
-      if (requiredFields.length > 0) {
-        console.log('Converted required fields:', requiredFields)
-      }
       setSupplierRequiredFields(requiredFields)
     } catch (error) {
       // 404 errors are expected for new-style suppliers using dynamic patterns
       const err = error as { response?: { status?: number } }
-      if (err.response?.status === 404) {
-        console.log('No legacy enrichment requirements for this supplier (uses dynamic patterns)')
-      } else {
+      if (err.response?.status !== 404) {
         console.error('Failed to load supplier required fields:', error)
       }
       // Don't show error toast - supplier might not have enrichment requirements
@@ -316,10 +301,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    console.log('Form submitted', formData)
-
     if (!validate()) {
-      console.log('Validation failed', errors)
       return
     }
 
@@ -355,7 +337,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         await savePendingSupplier()
       }
 
-      console.log('🚀 Creating part with data:', submitData)
       const createdPart = await partsService.createPart(submitData)
       toast.success('Part created successfully')
 
@@ -367,7 +348,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               projectsService.addPartToProject(projectId, createdPart.id)
             )
           )
-          console.log(`✅ Part associated with ${selectedProjects.length} project(s)`)
         } catch (error) {
           console.error('Failed to associate part with projects:', error)
           toast.error('Part created but failed to add to projects')
@@ -380,7 +360,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           await Promise.all(
             selectedTags.map((tag) => tagsService.assignTagToPart(tag.id, createdPart.id))
           )
-          console.log(`✅ Part tagged with ${selectedTags.length} tag(s)`)
         } catch (error) {
           console.error('Failed to assign tags to part:', error)
           toast.error('Part created but failed to assign tags')
@@ -394,7 +373,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
 
         if (hasEnrichment) {
           try {
-            console.log(`Auto-enriching part ${createdPart.id} with supplier ${formData.supplier}`)
             const enrichmentTask = await tasksService.createPartEnrichmentTask({
               part_id: createdPart.id,
               supplier: formData.supplier.trim(),
@@ -402,19 +380,13 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               force_refresh: false,
             })
             toast.success(`Enrichment task created: ${enrichmentTask.data.name}`)
-            console.log('Enrichment task created:', enrichmentTask.data)
           } catch (error) {
             console.error('Failed to create enrichment task:', error)
             toast.error('Part created but enrichment failed to start')
           }
-        } else {
-          console.log(
-            `Supplier "${formData.supplier}" does not support enrichment - skipping auto-enrich`
-          )
         }
       }
 
-      console.log('Part created successfully, calling onSuccess and handleClose')
       clearFormData() // Clear cached data on successful submission
       onSuccess()
       handleClose()
@@ -602,27 +574,15 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           const isInRegistry = availableSuppliers.includes(supplierLower)
           const isConfigured = configuredSuppliers.includes(supplierLower)
 
-          console.log('🔍 Smart Supplier Detection Check:')
-          console.log('  Detected supplier:', supplierLower)
-          console.log('  Is in registry (REST supplier)?', isInRegistry)
-          console.log('  Is configured?', isConfigured)
-          console.log('  Available suppliers:', availableSuppliers)
-          console.log('  Configured suppliers:', configuredSuppliers)
-
           // Path 1: REST supplier in registry
           if (isInRegistry) {
             // Path 1a: REST supplier but NOT configured
             if (!isConfigured) {
               // Check if supplier supports scraping
               const scrapingInfo = await dynamicSupplierService.checkScrapingSupport(supplierLower)
-              console.log(
-                '✨ REST supplier not configured - checking scraping support:',
-                scrapingInfo
-              )
 
               // If scraping is supported, auto-enrich with scraping (no modal needed)
               if (scrapingInfo.supports_scraping) {
-                console.log('🌐 Using web scraping for unconfigured supplier:', formattedName)
                 toast(
                   `${formattedName} detected - using web scraping to fetch part details (API not configured)`,
                   { icon: 'ℹ️' }
@@ -705,11 +665,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             }
 
             // Path 1b: REST supplier AND configured - auto-enrich with dynamic patterns
-            console.log('✅ REST supplier is configured - attempting dynamic auto-enrichment')
             await attemptDynamicEnrichment(url, supplierLower, formattedName)
           } else {
             // Path 2: NOT a REST supplier - create as simple supplier
-            console.log('📎 Not a REST supplier - creating simple supplier')
             await stageSimpleSupplier(supplierLower, formattedName, url)
           }
           return
@@ -732,27 +690,15 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         const isInRegistry = availableSuppliers.includes(supplierLower)
         const isConfigured = configuredSuppliers.includes(supplierLower)
 
-        console.log('🔍 Smart Supplier Detection Check:')
-        console.log('  Detected supplier:', supplierLower)
-        console.log('  Is in registry (REST supplier)?', isInRegistry)
-        console.log('  Is configured?', isConfigured)
-        console.log('  Available suppliers:', availableSuppliers)
-        console.log('  Configured suppliers:', configuredSuppliers)
-
         // Path 1: REST supplier in registry
         if (isInRegistry) {
           // Path 1a: REST supplier but NOT configured
           if (!isConfigured) {
             // Check if supplier supports scraping
             const scrapingInfo = await dynamicSupplierService.checkScrapingSupport(supplierLower)
-            console.log(
-              '✨ REST supplier not configured - checking scraping support:',
-              scrapingInfo
-            )
 
             // If scraping is supported, auto-enrich with scraping (no modal needed)
             if (scrapingInfo.supports_scraping) {
-              console.log('🌐 Using web scraping for unconfigured supplier:', formattedName)
               toast(
                 `${formattedName} detected - using web scraping to fetch part details (API not configured)`,
                 { icon: 'ℹ️' }
@@ -835,11 +781,9 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           }
 
           // Path 1b: REST supplier AND configured - auto-enrich with dynamic patterns
-          console.log('✅ REST supplier is configured - attempting dynamic auto-enrichment')
           await attemptDynamicEnrichment(url, supplierLower, formattedName)
         } else {
           // Path 2: NOT a REST supplier - create as simple supplier
-          console.log('📎 Not a REST supplier - creating simple supplier')
           await stageSimpleSupplier(supplierName, formattedName, url)
         }
       }
@@ -874,8 +818,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
     formattedName: string
   ) => {
     try {
-      console.log(`🔄 Loading enrichment field mappings for ${formattedName}...`)
-
       // Step 1: Get enrichment field mappings (URL patterns) from supplier
       const mappings = await dynamicSupplierService.getEnrichmentFieldMappings(supplierName)
 
@@ -883,8 +825,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         console.warn(`No enrichment field mappings available for ${formattedName}`)
         return
       }
-
-      console.log(`✅ Loaded ${mappings.length} field mapping(s):`, mappings)
 
       // Step 2: Extract field values from URL using patterns
       const extractedFields: Record<string, string> = {}
@@ -894,14 +834,11 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         const value = extractFieldFromUrl(url, mapping.url_patterns)
         if (value) {
           extractedFields[mapping.field_name] = value
-          console.log(`  ✓ Extracted ${mapping.display_name}: ${value}`)
 
           // Track the primary field (usually supplier_part_number)
           if (mapping.required_for_enrichment && !primaryFieldValue) {
             primaryFieldValue = value
           }
-        } else {
-          console.log(`  ✗ Could not extract ${mapping.display_name} from URL`)
         }
       }
 
@@ -911,7 +848,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         return
       }
 
-      console.log(`🔄 Auto-enriching ${formattedName} part: ${primaryFieldValue}`)
       toast.loading(`Fetching part details from ${formattedName}...`, { duration: 2000 })
 
       // Step 3: Auto-populate extracted fields
@@ -932,8 +868,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         toast.error(`Could not fetch details for ${primaryFieldValue} from ${formattedName}`)
         return
       }
-
-      console.log('✅ Enriched data from backend (via SupplierDataMapper):', enrichedData)
 
       // Step 5: Auto-populate enriched fields
       // The backend already mapped everything via SupplierDataMapper, so just use it directly
@@ -970,7 +904,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
             value: String(value),
           }))
         setCustomProperties(customProps)
-        console.log('✅ Populated custom properties from backend:', customProps)
         // Auto-expand the additional properties section to show the populated data
         if (customProps.length > 0) {
           setIsAdditionalPropsOpen(true)
@@ -982,10 +915,8 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
         const hardwareCategory = categories.find((cat) => cat.name.toLowerCase() === 'hardware')
         if (hardwareCategory && !selectedCategories.includes(hardwareCategory.id)) {
           setSelectedCategories([...selectedCategories, hardwareCategory.id])
-          console.log('✅ Auto-selected Hardware category for Bolt Depot part')
         } else if (!hardwareCategory) {
           // Hardware category doesn't exist yet, it will be auto-created on backend
-          console.log('ℹ️ Hardware category will be auto-created when part is saved')
         }
       }
 
@@ -1031,9 +962,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
           displayName: formattedName,
           url: url.startsWith('http') ? url : `https://${url}`,
         })
-        console.log(
-          `Staged simple supplier ${formattedName} — will be saved when part is submitted`
-        )
       }
 
       toast.success(`Auto-detected supplier: ${formattedName}`)
@@ -1063,9 +991,6 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
       }
 
       await supplierService.createSupplier(supplierConfig)
-      console.log(
-        `Created simple supplier config for ${pendingSupplier.displayName} - favicon will be fetched automatically`
-      )
       setPendingSupplier(null)
     } catch (error) {
       console.warn('Failed to create supplier config for favicon:', error)

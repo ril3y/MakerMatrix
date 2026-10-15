@@ -44,8 +44,6 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     // Set data attribute for CSS selectors
     document.documentElement.setAttribute('data-theme', currentTheme)
-
-    console.log('Theme applied:', currentTheme)
   }, [currentTheme])
 
   useEffect(() => {

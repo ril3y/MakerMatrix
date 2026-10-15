@@ -8,6 +8,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Plus, CheckCircle, AlertTriangle, Link as LinkIcon } from 'lucide-react'
 import { supplierService } from '../../services/supplier.service'
+import { getErrorMessage } from '../../services/api'
 
 interface AddSimpleSupplierModalProps {
   onClose: () => void
@@ -117,7 +118,6 @@ export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({
         supports_specifications: false,
       }
 
-      console.log('Creating simple supplier:', supplierConfig)
       await supplierService.createSupplier(supplierConfig)
 
       setSuccess(true)
@@ -128,10 +128,7 @@ export const AddSimpleSupplierModal: React.FC<AddSimpleSupplierModalProps> = ({
       }, 1500)
     } catch (err) {
       console.error('Failed to create simple supplier:', err)
-      const error = err as { response?: { data?: { detail?: string } }; message?: string }
-      const errorMessage =
-        error.response?.data?.detail || error.message || 'Failed to create supplier'
-      setError(errorMessage)
+      setError(getErrorMessage(err, 'Failed to create supplier'))
     } finally {
       setLoading(false)
     }

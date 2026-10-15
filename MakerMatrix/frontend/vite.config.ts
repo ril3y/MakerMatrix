@@ -41,5 +41,20 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       https: httpsConfig,
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Split heavy vendor deps into long-lived cacheable chunks so the
+          // initial route chunk stays small and changes to app code don't
+          // bust the vendor cache.
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-motion': ['framer-motion'],
+            'vendor-syntax': ['react-syntax-highlighter'],
+            'vendor-charts': ['chart.js', 'react-chartjs-2'],
+          },
+        },
+      },
+    },
   }
 })

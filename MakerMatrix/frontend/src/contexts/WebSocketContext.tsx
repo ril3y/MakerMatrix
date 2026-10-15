@@ -10,6 +10,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import toast from 'react-hot-toast'
 import type { EntityEventData, WebSocketMessage } from '@/services/websocket.service'
 import { generalWebSocket } from '@/services/websocket.service'
+import { taskWebSocket } from '@/services/task-websocket.service'
 import { useAuthStore } from '@/store/authStore'
 
 export interface WebSocketContextType {
@@ -40,7 +41,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const [connectionState, setConnectionState] = useState('disconnected')
   const [enableToasts, setEnableToasts] = useState(enableToastsByDefault)
   const [hasShownConnectionToast, setHasShownConnectionToast] = useState(false)
-  const { user } = useAuthStore()
+  // Subscribe to both `user` and `isAuthenticated` so this effect re-runs on
+  // login and logout — both shared WebSocket singletons (general + tasks) need
+  // to drop and re-establish their connections so the new auth token rides
+  // the WS handshake URL.
+  const user = useAuthStore((s) => s.user)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   // Update connection state
   const updateConnectionState = useCallback(() => {
@@ -144,12 +150,6 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       // Don't show toast if the current user performed the action
       // (the component that made the change already shows a toast)
       if (data.username && user?.username && data.username === user.username) {
-        console.log(
-          '🔕 Skipping toast for own action:',
-          data.action,
-          data.entity_type,
-          data.entity_name
-        )
         return
       }
 
@@ -266,6 +266,35 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       generalWebSocket.off('entity_bulk_updated', handleEntityBulkUpdated)
     }
   }, [handleCrudEvent, updateConnectionState])
+
+  // Connect (or reconnect) the WS singletons whenever auth state flips. On
+  // login we tear down any stale connection — which may have been opened
+  // anonymously earlier — and reconnect so the new token rides the URL. On
+  // logout we just close.
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Drop any existing connection that used a stale/missing token, then
+      // reconnect with the current token from localStorage.
+      generalWebSocket.disconnect()
+      taskWebSocket.disconnect()
+      generalWebSocket
+        .connect()
+        .then(() => {
+          generalWebSocket.startHeartbeat()
+          updateConnectionState()
+        })
+        .catch((err) => console.error('General WebSocket connect failed:', err))
+      taskWebSocket
+        .connect()
+        .then(() => taskWebSocket.startHeartbeat())
+        .catch((err) => console.error('Task WebSocket connect failed:', err))
+    } else {
+      generalWebSocket.disconnect()
+      taskWebSocket.disconnect()
+      updateConnectionState()
+    }
+    // user is in deps so re-login as a different user also re-handshakes.
+  }, [isAuthenticated, user?.id, updateConnectionState])
 
   const value: WebSocketContextType = {
     isConnected,

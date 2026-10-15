@@ -131,22 +131,40 @@ class ApiClient {
 
 export const apiClient = new ApiClient()
 
-// Helper function for handling API errors
-export const handleApiError = (error: unknown): string => {
-  if (error && typeof error === 'object') {
-    const axiosError = error as AxiosError<{ message?: string; error?: string }>
-    if (axiosError.response?.data?.message) {
-      return axiosError.response.data.message
+/**
+ * Extract a human-readable error message from an unknown error value. Handles:
+ *  - Axios errors with `response.data.detail` (FastAPI default), `.message`,
+ *    or `.error` payloads
+ *  - Standard `Error` instances (uses `.message`)
+ *  - Plain strings
+ *  - Anything else — returns the supplied fallback
+ *
+ * Use this everywhere instead of casting to inline shapes like
+ * `error as { response?: { data?: { detail?: string } } }`.
+ */
+export const getErrorMessage = (
+  error: unknown,
+  fallback = 'An unexpected error occurred'
+): string => {
+  if (error == null) return fallback
+  if (typeof error === 'string') return error || fallback
+
+  if (typeof error === 'object') {
+    const axiosError = error as AxiosError<{ detail?: string; message?: string; error?: string }>
+    const data = axiosError.response?.data
+    if (data) {
+      if (typeof data.detail === 'string' && data.detail.length > 0) return data.detail
+      if (typeof data.message === 'string' && data.message.length > 0) return data.message
+      if (typeof data.error === 'string' && data.error.length > 0) return data.error
     }
-    if (axiosError.response?.data?.error) {
-      return axiosError.response.data.error
-    }
-    if ('message' in axiosError && typeof axiosError.message === 'string') {
-      return axiosError.message
-    }
+    const message = (axiosError as { message?: unknown }).message
+    if (typeof message === 'string' && message.length > 0) return message
   }
-  return 'An unexpected error occurred'
+  return fallback
 }
+
+// Backwards-compatible alias retained for callers that imported `handleApiError`.
+export const handleApiError = getErrorMessage
 
 // Helper function to get PDF proxy URL
 export const getPDFProxyUrl = (externalUrl: string): string => {

@@ -44,8 +44,6 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
           setError(null)
 
           const token = localStorage.getItem('auth_token')
-          console.log('PDFViewer: Using token:', token ? `${token.substring(0, 20)}...` : 'null')
-          console.log('PDFViewer: Fetching URL:', fileUrl)
 
           const response = await fetch(fileUrl, {
             headers: {
@@ -58,10 +56,8 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
           }
 
           const arrayBuffer = await response.arrayBuffer()
-          console.log('PDFViewer: ArrayBuffer received, size:', arrayBuffer.byteLength)
           setPdfData(arrayBuffer)
           setLoading(false) // Important: Set loading to false after data is received
-          console.log('PDFViewer: Loading set to false, pdfData set')
         } catch (err) {
           const error = err as { message?: string }
           console.error('Failed to fetch PDF:', err)
@@ -78,7 +74,6 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ fileUrl, fileName, onClose }) => 
   }, [fileUrl])
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    console.log('PDFViewer: Document loaded successfully, pages:', numPages)
     setNumPages(numPages)
     setLoading(false)
     setError(null)

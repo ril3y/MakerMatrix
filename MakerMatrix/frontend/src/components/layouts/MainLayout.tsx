@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Menu,
@@ -33,6 +33,68 @@ interface NavItem {
   children?: NavItem[]
 }
 
+type GuardedNavItem = NavItem & { requiredPermission?: string }
+
+// Hoisted at module scope so the array and its JSX icon nodes are created
+// once, not rebuilt on every render.
+const BASE_NAV_ITEMS: GuardedNavItem[] = [
+  {
+    label: 'Dashboard',
+    path: '/',
+    icon: <Home className="w-5 h-5" />,
+    // No permission required - Dashboard is accessible to all users
+  },
+  {
+    label: 'Parts',
+    path: '/parts',
+    icon: <CircuitBoard className="w-5 h-5" />,
+    requiredPermission: 'parts:read',
+  },
+  {
+    label: 'Locations',
+    path: '/locations',
+    icon: <MapPin className="w-5 h-5" />,
+    requiredPermission: 'locations:read',
+  },
+  {
+    label: 'Categories',
+    path: '/categories',
+    icon: <Tags className="w-5 h-5" />,
+    requiredPermission: 'categories:read',
+  },
+  {
+    label: 'Projects',
+    path: '/projects',
+    icon: <Hash className="w-5 h-5" />,
+    requiredPermission: 'projects:read',
+  },
+  {
+    label: 'Tools',
+    path: '/tools',
+    icon: <Wrench className="w-5 h-5" />,
+    requiredPermission: 'tools:read',
+  },
+  {
+    label: 'Tasks',
+    path: '/tasks',
+    icon: <Activity className="w-5 h-5" />,
+    requiredPermission: 'tasks:read',
+  },
+  {
+    label: 'Settings',
+    path: '/settings',
+    icon: <Settings className="w-5 h-5" />,
+    requiredPermission: 'all', // Settings require admin/all permission
+  },
+]
+
+const ADMIN_USERS_NAV_ITEM: GuardedNavItem = {
+  label: 'Users',
+  path: '/users',
+  icon: <Users className="w-5 h-5" />,
+  requiredPermission: 'users:read',
+}
+
 const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
@@ -43,73 +105,17 @@ const MainLayout: React.FC = () => {
   const navigate = useNavigate()
   const { user, logout, hasRole, hasPermission } = useAuthStore()
 
-  // Define all possible nav items with their required permissions
-  const allNavItems: (NavItem & { requiredPermission?: string })[] = [
-    {
-      label: 'Dashboard',
-      path: '/',
-      icon: <Home className="w-5 h-5" />,
-      // No permission required - Dashboard is accessible to all users
-    },
-    {
-      label: 'Parts',
-      path: '/parts',
-      icon: <CircuitBoard className="w-5 h-5" />,
-      requiredPermission: 'parts:read',
-    },
-    {
-      label: 'Locations',
-      path: '/locations',
-      icon: <MapPin className="w-5 h-5" />,
-      requiredPermission: 'locations:read',
-    },
-    {
-      label: 'Categories',
-      path: '/categories',
-      icon: <Tags className="w-5 h-5" />,
-      requiredPermission: 'categories:read',
-    },
-    {
-      label: 'Projects',
-      path: '/projects',
-      icon: <Hash className="w-5 h-5" />,
-      requiredPermission: 'projects:read',
-    },
-    {
-      label: 'Tools',
-      path: '/tools',
-      icon: <Wrench className="w-5 h-5" />,
-      requiredPermission: 'tools:read',
-    },
-    {
-      label: 'Tasks',
-      path: '/tasks',
-      icon: <Activity className="w-5 h-5" />,
-      requiredPermission: 'tasks:read',
-    },
-    {
-      label: 'Settings',
-      path: '/settings',
-      icon: <Settings className="w-5 h-5" />,
-      requiredPermission: 'all', // Settings require admin/all permission
-    },
-  ]
-
-  // Admin-only Users nav item
-  if (hasRole('admin')) {
-    allNavItems.push({
-      label: 'Users',
-      path: '/users',
-      icon: <Users className="w-5 h-5" />,
-      requiredPermission: 'users:read',
-    })
-  }
-
-  // Filter nav items based on user permissions
-  const navItems = allNavItems.filter((item) => {
-    if (!item.requiredPermission) return true
-    return hasPermission(item.requiredPermission)
-  })
+  // Combine the module-scope base list with the admin-only item when the
+  // current user is an admin, then filter by per-item permission. Memoized so
+  // the array identity is stable across renders unless the relevant pieces of
+  // auth state change.
+  const isAdmin = hasRole('admin')
+  const navItems = useMemo(() => {
+    const items = isAdmin ? [...BASE_NAV_ITEMS, ADMIN_USERS_NAV_ITEM] : BASE_NAV_ITEMS
+    return items.filter(
+      (item) => !item.requiredPermission || hasPermission(item.requiredPermission)
+    )
+  }, [isAdmin, hasPermission])
 
   // Clear search when navigating to a different page
   useEffect(() => {

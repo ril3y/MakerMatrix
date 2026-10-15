@@ -44,7 +44,6 @@ export class WebSocketService {
       const envApiUrl = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL
       const currentPort = window.location.port
       const currentProtocol = window.location.protocol
-      console.log(`🔍 Current port: ${currentPort}`)
 
       let protocol = currentProtocol === 'https:' ? 'wss:' : 'ws:'
       let host = window.location.host
@@ -57,7 +56,6 @@ export class WebSocketService {
           protocol = apiProtocol === 'https:' ? 'wss:' : 'ws:'
           host = `${hostname}${port ? `:${port}` : ''}`
           resolvedFromEnv = true
-          console.log(`🌐 Using VITE_API_URL for WebSocket host: ${parsedUrl.origin}`)
         } catch (error) {
           console.warn('⚠️ Failed to parse VITE_API_URL for WebSocket usage:', error)
         }
@@ -71,20 +69,13 @@ export class WebSocketService {
         protocol = 'ws:'
         const backendPort = '8080'
         host = `${window.location.hostname}:${backendPort}`
-        console.log(`🔧 Dev fallback engaged, forcing WS connection to backend: ${host}`)
       }
 
       const wsUrl = `${protocol}//${host}${this.endpoint}${token ? `?token=${token}` : ''}`
 
-      console.log(`🔗 Attempting WebSocket connection to: ${wsUrl}`)
-      console.log(`🔑 Auth token available: ${!!token}`)
-      console.log(`📍 Endpoint: ${this.endpoint}`)
-      console.log(`🏠 Host resolved to: ${host}`)
-
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
-        console.log(`✅ WebSocket connected to ${this.endpoint}`)
         this.isConnecting = false
         this.reconnectAttempts = 0
         this.sendMessage({ type: 'subscribe_activities' })
@@ -92,19 +83,12 @@ export class WebSocketService {
       }
 
       this.ws.onclose = (event) => {
-        console.log(`❌ WebSocket disconnected from ${this.endpoint}:`, event.code, event.reason)
-        console.log(`🔍 Close event details:`, {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        })
         this.isConnecting = false
         this.ws = null
 
         if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
           setTimeout(() => {
             this.reconnectAttempts++
-            console.log(`🔄 Reconnecting to ${this.endpoint}... attempt ${this.reconnectAttempts}`)
             this.connect()
           }, this.reconnectInterval * this.reconnectAttempts)
         }
@@ -112,7 +96,6 @@ export class WebSocketService {
 
       this.ws.onerror = (error) => {
         console.error(`❌ WebSocket error on ${this.endpoint}:`, error)
-        console.log(`🔍 Error details:`, error)
         this.isConnecting = false
         reject(error)
       }
@@ -120,7 +103,6 @@ export class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data)
-          console.log(`📨 WebSocket message on ${this.endpoint}:`, message)
           this.handleMessage(message)
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error)
@@ -172,7 +154,6 @@ export class WebSocketService {
     }
 
     if (message.type === 'connection') {
-      console.log('WebSocket connection confirmed:', message.data)
       return
     }
 
@@ -286,8 +267,10 @@ export class WebSocketService {
 // Global instance for general activity updates
 export const generalWebSocket = new WebSocketService('/ws/general')
 
-// Auto-connect when module is imported
-if (typeof window !== 'undefined') {
-  generalWebSocket.connect().catch(console.error)
-  generalWebSocket.startHeartbeat()
-}
+// NOTE: Connection lifecycle is owned by `WebSocketProvider` (see
+// `contexts/WebSocketContext.tsx`). Connecting at module load runs before
+// `setAuthToken` has finished syncing localStorage on first login, so the
+// initial WS handshake used to go out without a token — which is exactly
+// why the login flow had to do a full-page reload. The provider now connects
+// when the user becomes authenticated and disconnects on logout, so the
+// auth-token-in-URL race is gone.

@@ -9,6 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Package, MapPin, ArrowRightLeft, AlertCircle } from 'lucide-react'
 import type { AllocationSummary, PartAllocation } from '../../services/part-allocation.service'
 import { partAllocationService } from '../../services/part-allocation.service'
+import { getErrorMessage } from '../../services/api'
 
 interface AllocationsSummaryProps {
   partId: string
@@ -34,8 +35,7 @@ export const AllocationsSummary: React.FC<AllocationsSummaryProps> = ({
       // Don't call onRefresh here - only call it when user explicitly clicks refresh
     } catch (err) {
       console.error('Error loading allocations:', err)
-      const error = err as { response?: { data?: { detail?: string } }; message?: string }
-      setError(error.response?.data?.detail || error.message || 'Failed to load allocations')
+      setError(getErrorMessage(err, 'Failed to load allocations'))
     } finally {
       setLoading(false)
     }

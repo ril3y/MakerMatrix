@@ -71,6 +71,10 @@ jobs:
       # SQLite path inside the workflow workspace; the default sqlite:////data/...
       # is the Docker path and isn't writable in GH Actions runners.
       DATABASE_URL: sqlite:///./ci_test.db
+      # The default CORS allow-list no longer includes "*", so the preview
+      # server's origin (the built bundle calls the backend cross-origin)
+      # must be allowed explicitly or every login preflight gets a 400.
+      CORS_ORIGINS: http://localhost:4173
       # The workflow starts its own preview server below — tell playwright.config.ts
       # not to spawn an extra one (its default uses https://localhost:5173 with PEM
       # certs that don't exist in CI), and point tests at the workflow's preview.
@@ -116,6 +120,9 @@ jobs:
     - name: Start backend server
       run: |
         source venv_test/bin/activate
+        # The backend refuses to start without a credential encryption key;
+        # generate a throwaway one per run rather than committing a key.
+        export MAKERMATRIX_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
         python -m uvicorn MakerMatrix.main:app --host 0.0.0.0 --port 57891 &
         sleep 10
         curl --retry 5 --retry-delay 5 --retry-connrefused http://localhost:57891/docs
