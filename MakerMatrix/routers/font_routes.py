@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from MakerMatrix.services.printer.font_service import FontService, FontInfo
 from MakerMatrix.routers.base import ResponseSchema
 
-
 router = APIRouter(prefix="/fonts", tags=["fonts"])
 
 

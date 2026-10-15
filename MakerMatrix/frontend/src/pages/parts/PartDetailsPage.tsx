@@ -82,7 +82,7 @@ import { dynamicSupplierService } from '@/services/dynamic-supplier.service'
 
 // Icon mapping for property explorer
 const _getIconForProperty = (propertyKey: string) => {
-  const iconMapping = {
+  const iconMapping: Record<string, typeof Info> = {
     specifications: Zap,
     supplier_data: Globe,
     metadata: Clock,
@@ -867,7 +867,8 @@ const PartDetailsPage = () => {
     // If current location is a slot, get the parent container
     if (part.location.is_auto_generated_slot && part.location.parent) {
       // Load the full container details
-      const container = allLocations.find((loc) => loc.id === part.location.parent.id)
+      const parentId = part.location?.parent?.id
+      const container = allLocations.find((loc) => loc.id === parentId)
       if (container) {
         setSelectedContainer(container)
         setLocationManagementModalOpen(false)
@@ -950,7 +951,7 @@ const PartDetailsPage = () => {
   }
 
   const handleSupplierClick = () => {
-    if (!canUpdate) return
+    if (!canUpdate('parts')) return
     setTempSupplier(part?.supplier || '')
     setEditingSupplier(true)
   }
@@ -1581,7 +1582,7 @@ const PartDetailsPage = () => {
 
                     {/* Supplier Field */}
                     <div
-                      className={`group bg-theme-secondary border border-theme-primary rounded-lg p-4 ${canUpdate && !editingSupplier ? 'hover:bg-theme-tertiary cursor-pointer' : ''} transition-colors`}
+                      className={`group bg-theme-secondary border border-theme-primary rounded-lg p-4 ${canUpdate('parts') && !editingSupplier ? 'hover:bg-theme-tertiary cursor-pointer' : ''} transition-colors`}
                       onClick={!editingSupplier ? handleSupplierClick : undefined}
                     >
                       <div className="flex items-start gap-3">
@@ -1629,7 +1630,7 @@ const PartDetailsPage = () => {
                                 <p className="font-semibold text-theme-primary">
                                   {part.supplier || 'Not set'}
                                 </p>
-                                {canUpdate && (
+                                {canUpdate('parts') && (
                                   <Edit className="w-4 h-4 text-theme-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                                 )}
                               </div>
@@ -1980,10 +1981,12 @@ const PartDetailsPage = () => {
           )}
 
           {/* Datasheets Section */}
-          {((part.datasheets && part.datasheets.length > 0) ||
-            part.additional_properties?.datasheet_url ||
-            (part.additional_properties?.datasheet_downloaded &&
-              part.additional_properties?.datasheet_filename)) && (
+          {Boolean(
+            (part.datasheets && part.datasheets.length > 0) ||
+              part.additional_properties?.datasheet_url ||
+              (part.additional_properties?.datasheet_downloaded &&
+                part.additional_properties?.datasheet_filename)
+          ) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2106,8 +2109,8 @@ const PartDetailsPage = () => {
                   ))}
 
                   {/* Downloaded datasheet from additional_properties */}
-                  {part.additional_properties?.datasheet_downloaded &&
-                    part.additional_properties?.datasheet_filename && (
+                  {Boolean(part.additional_properties?.datasheet_downloaded) &&
+                    Boolean(part.additional_properties?.datasheet_filename) && (
                       <div className="border border-green-500/30 rounded-lg p-4 bg-black hover:bg-black/80 transition-colors">
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -2135,7 +2138,7 @@ const PartDetailsPage = () => {
                             <span>Size:</span>
                             <span>
                               {(
-                                (Number(part.additional_properties.datasheet_size) || 0) / 1024
+                                (Number(part.additional_properties?.datasheet_size) || 0) / 1024
                               ).toFixed(1)}{' '}
                               KB
                             </span>
@@ -2189,7 +2192,7 @@ const PartDetailsPage = () => {
                     )}
 
                   {/* Enriched datasheet URL from additional_properties - only show if NOT downloaded locally */}
-                  {part.additional_properties?.datasheet_url &&
+                  {Boolean(part.additional_properties?.datasheet_url) &&
                     !part.additional_properties?.datasheet_downloaded && (
                       <div className="border border-green-500/30 rounded-lg p-4 bg-black hover:bg-black/80 transition-colors">
                         <div className="flex items-start justify-between mb-3">
@@ -2891,13 +2894,13 @@ function formatSpecValue(value: unknown): string | JSX.Element {
     if ('label' in obj && obj.label) return String(obj.label)
     if ('title' in obj && obj.title) return String(obj.title)
 
-    const keys = Object.keys(value)
+    const keys = Object.keys(obj)
     if (keys.length === 0) return '—'
 
     // If object has one key, try to show its value
     if (keys.length === 1) {
-      const key = keys[0]
-      const val = formatSpecValue(value[key])
+      const key = keys[0] as string
+      const val = formatSpecValue(obj[key])
       // Check if val is JSX or string
       if (typeof val === 'string') {
         return `${key}: ${val}`
@@ -2913,10 +2916,10 @@ function formatSpecValue(value: unknown): string | JSX.Element {
 
     // For objects with multiple keys, return JSX with clean line breaks
     const pairs = keys
-      .filter((key) => value[key] !== null && value[key] !== undefined)
+      .filter((key) => obj[key] !== null && obj[key] !== undefined)
       .slice(0, 5) // Show more items since we're not cramming them together
       .map((key) => {
-        const val = formatSpecValue(value[key])
+        const val = formatSpecValue(obj[key])
         return { key, val }
       })
 

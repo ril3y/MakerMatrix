@@ -829,7 +829,7 @@ class SeeedStudioSupplier(BaseSupplier):
 
         Returns dict of specification name -> value
         """
-        specifications = {}
+        specifications: dict[str, Any] = {}
 
         try:
             # First try the escaped content if available

@@ -162,7 +162,7 @@ export const SupplierConfigPage: React.FC = () => {
       }
       console.error('Error loading suppliers:', err)
       const errorMessage =
-        err.response?.data?.detail || error.message || 'Failed to load supplier configurations'
+        error.response?.data?.detail || error.message || 'Failed to load supplier configurations'
       setError(errorMessage)
       setSuppliers([]) // Ensure suppliers is always an array
     } finally {

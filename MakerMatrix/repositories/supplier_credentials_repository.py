@@ -1,8 +1,13 @@
 """
 Supplier Credentials Repository
 
-Data access layer for supplier credentials (plain text storage).
-Protected by password-encrypted backup ZIPs and OS file permissions.
+Data access layer for supplier credentials.
+
+Credentials are encrypted at rest with :mod:`MakerMatrix.utils.credential_encryption`
+(Fernet, keyed off MAKERMATRIX_ENCRYPTION_KEY). The repository transparently
+decrypts on read via ``get_credentials_as_dict``. A migration shim in the
+decryption helper allows legacy plaintext rows to keep working until they
+are next written, at which point they will be re-encrypted.
 """
 
 import logging
@@ -11,6 +16,7 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from MakerMatrix.models.supplier_config_models import SupplierCredentialsModel, SupplierConfigModel
+from MakerMatrix.utils.credential_encryption import encrypt_value, decrypt_value
 
 logger = logging.getLogger(__name__)
 
@@ -41,32 +47,34 @@ class SupplierCredentialsRepository:
         # Create credentials model
         credentials_model = SupplierCredentialsModel(supplier_config_id=supplier_config_id, created_by_user_id=user_id)
 
-        # Map common credential fields
+        # Map common credential fields. Sensitive fields are encrypted at
+        # rest using Fernet (see MakerMatrix.utils.credential_encryption).
         if "api_key" in credentials:
-            credentials_model.api_key = credentials["api_key"]
+            credentials_model.api_key = encrypt_value(credentials["api_key"])
 
         if "secret_key" in credentials:
-            credentials_model.secret_key = credentials["secret_key"]
+            credentials_model.secret_key = encrypt_value(credentials["secret_key"])
 
         if "client_id" in credentials:
             # Store client_id as api_key for compatibility
-            credentials_model.api_key = credentials["client_id"]
+            credentials_model.api_key = encrypt_value(credentials["client_id"])
 
         if "client_secret" in credentials:
             # Store client_secret as secret_key for compatibility
-            credentials_model.secret_key = credentials["client_secret"]
+            credentials_model.secret_key = encrypt_value(credentials["client_secret"])
 
         if "username" in credentials:
+            # Usernames are not high-sensitivity but we store consistently
             credentials_model.username = credentials["username"]
 
         if "password" in credentials:
-            credentials_model.password = credentials["password"]
+            credentials_model.password = encrypt_value(credentials["password"])
 
         if "oauth_token" in credentials:
-            credentials_model.oauth_token = credentials["oauth_token"]
+            credentials_model.oauth_token = encrypt_value(credentials["oauth_token"])
 
         if "refresh_token" in credentials:
-            credentials_model.refresh_token = credentials["refresh_token"]
+            credentials_model.refresh_token = encrypt_value(credentials["refresh_token"])
 
         # Handle additional custom credentials
         additional_creds = {
@@ -87,7 +95,8 @@ class SupplierCredentialsRepository:
         if additional_creds:
             import json
 
-            credentials_model.additional_data = json.dumps(additional_creds)
+            # Encrypt the entire JSON blob since it may contain secrets.
+            credentials_model.additional_data = encrypt_value(json.dumps(additional_creds))
 
         # Save to database
         session.add(credentials_model)
@@ -149,33 +158,42 @@ class SupplierCredentialsRepository:
 
         creds = {}
 
+        # Decrypt sensitive fields on read. The decrypt_value helper has a
+        # migration shim that returns legacy plaintext values unchanged.
+        api_key_pt = decrypt_value(credentials_model.api_key)
+        secret_key_pt = decrypt_value(credentials_model.secret_key)
+        password_pt = decrypt_value(credentials_model.password)
+        oauth_token_pt = decrypt_value(credentials_model.oauth_token)
+        refresh_token_pt = decrypt_value(credentials_model.refresh_token)
+        additional_data_pt = decrypt_value(credentials_model.additional_data)
+
         # Map stored fields to expected field names
         # For DigiKey compatibility: api_key -> client_id, secret_key -> client_secret
-        if credentials_model.api_key:
-            creds["api_key"] = credentials_model.api_key
-            creds["client_id"] = credentials_model.api_key  # DigiKey uses client_id
+        if api_key_pt:
+            creds["api_key"] = api_key_pt
+            creds["client_id"] = api_key_pt  # DigiKey uses client_id
 
-        if credentials_model.secret_key:
-            creds["secret_key"] = credentials_model.secret_key
-            creds["client_secret"] = credentials_model.secret_key  # DigiKey uses client_secret
+        if secret_key_pt:
+            creds["secret_key"] = secret_key_pt
+            creds["client_secret"] = secret_key_pt  # DigiKey uses client_secret
 
         if credentials_model.username:
             creds["username"] = credentials_model.username
 
-        if credentials_model.password:
-            creds["password"] = credentials_model.password
+        if password_pt:
+            creds["password"] = password_pt
 
-        if credentials_model.oauth_token:
-            creds["oauth_token"] = credentials_model.oauth_token
+        if oauth_token_pt:
+            creds["oauth_token"] = oauth_token_pt
 
-        if credentials_model.refresh_token:
-            creds["refresh_token"] = credentials_model.refresh_token
+        if refresh_token_pt:
+            creds["refresh_token"] = refresh_token_pt
 
-        if credentials_model.additional_data:
+        if additional_data_pt:
             import json
 
             try:
-                additional = json.loads(credentials_model.additional_data)
+                additional = json.loads(additional_data_pt)
                 creds.update(additional)
             except (json.JSONDecodeError, TypeError):
                 self.logger.warning("Failed to parse additional_data JSON")

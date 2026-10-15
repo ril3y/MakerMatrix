@@ -47,8 +47,8 @@ export class TaskWebSocketService extends WebSocketService {
 
   // Task-specific event handlers
   onTaskUpdate(handler: (task: Task) => void) {
-    const wrapped = (message: TaskWebSocketMessage) => {
-      const data = message.data as TaskUpdateData | Task
+    const wrapped = (message: WebSocketMessage) => {
+      const data = (message as TaskWebSocketMessage).data as TaskUpdateData | Task
       if (data && 'task' in data) {
         handler(data.task)
       } else if (data) {
@@ -62,8 +62,8 @@ export class TaskWebSocketService extends WebSocketService {
   }
 
   onTaskCreated(handler: (task: Task) => void) {
-    const wrapped = (message: TaskWebSocketMessage) => {
-      const data = message.data as TaskUpdateData | Task
+    const wrapped = (message: WebSocketMessage) => {
+      const data = (message as TaskWebSocketMessage).data as TaskUpdateData | Task
       if (data && 'task' in data) {
         handler(data.task)
       } else if (data) {
@@ -76,8 +76,8 @@ export class TaskWebSocketService extends WebSocketService {
   }
 
   onTaskDeleted(handler: (taskId: string) => void) {
-    const wrapped = (message: TaskWebSocketMessage) => {
-      const data = message.data as { task_id: string }
+    const wrapped = (message: WebSocketMessage) => {
+      const data = (message as TaskWebSocketMessage).data as { task_id: string }
       if (data?.task_id) {
         handler(data.task_id)
       }
@@ -88,8 +88,8 @@ export class TaskWebSocketService extends WebSocketService {
   }
 
   onWorkerStatusUpdate(handler: (status: WorkerStatus) => void) {
-    const wrapped = (message: TaskWebSocketMessage) => {
-      const data = message.data as WorkerStatusUpdateData
+    const wrapped = (message: WebSocketMessage) => {
+      const data = (message as TaskWebSocketMessage).data as WorkerStatusUpdateData
       if (data?.worker_status) {
         handler(data.worker_status)
       }
@@ -100,8 +100,8 @@ export class TaskWebSocketService extends WebSocketService {
   }
 
   onTaskStatsUpdate(handler: (stats: TaskStats) => void) {
-    const wrapped = (message: TaskWebSocketMessage) => {
-      const data = message.data as TaskStatsUpdateData
+    const wrapped = (message: WebSocketMessage) => {
+      const data = (message as TaskWebSocketMessage).data as TaskStatsUpdateData
       if (data?.task_stats) {
         handler(data.task_stats)
       }

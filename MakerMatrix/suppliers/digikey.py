@@ -975,7 +975,8 @@ class DigiKeySupplier(BaseSupplier):
                 # Try the product details endpoint (might be included in Product Information V4)
                 # URL-encode the part number to handle special characters like '/'
                 from urllib.parse import quote
-                encoded_part_number = quote(part_number_to_query, safe='')
+
+                encoded_part_number = quote(part_number_to_query, safe="")
                 search_url = f"{self._get_base_url()}/products/v4/search/{encoded_part_number}/productdetails"
 
                 http_client = self._get_http_client()

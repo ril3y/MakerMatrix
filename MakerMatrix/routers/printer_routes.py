@@ -282,9 +282,7 @@ async def list_printers():
             traceback.print_exc()
 
     print(f"[DEBUG] Returning {len(printer_list)} printers")
-    return BaseRouter.build_success_response(
-        data=printer_list, message=f"Retrieved {len(printer_list)} printers"
-    )
+    return BaseRouter.build_success_response(data=printer_list, message=f"Retrieved {len(printer_list)} printers")
 
 
 @router.get("/printers/{printer_id}", response_model=ResponseSchema)
@@ -482,7 +480,9 @@ async def get_printer_status(printer_id: str):
 @router.post("/printers/{printer_id}/test", response_model=ResponseSchema)
 @standard_error_handling
 @log_activity("printer_tested", "User {username} tested printer connection")
-async def test_printer_connection(printer_id: str, label_size: Optional[str] = Query(default=None), request: Request = None):
+async def test_printer_connection(
+    printer_id: str, label_size: Optional[str] = Query(default=None), request: Request = None
+):
     """Test printer connectivity and print a test label."""
     print(f"Testing connection for printer: {printer_id}")
     printer = await printer_manager.get_printer(printer_id)
@@ -696,10 +696,12 @@ async def test_printer_setup(setup_data: dict):
 
 # Discovery Endpoints (Restored as stubs to prevent frontend 404s)
 
+
 class LatestDiscovery(BaseModel):
     discovered_printers: List[dict] = []
     discovery_time_ms: int = 0
     scan_info: dict = {}
+
 
 @router.get("/discover/latest", response_model=ResponseSchema)
 @standard_error_handling
@@ -708,11 +710,9 @@ async def get_latest_discovery():
     # Return empty result to stop frontend errors
     return BaseRouter.build_success_response(
         data=LatestDiscovery(
-            discovered_printers=[],
-            discovery_time_ms=0,
-            scan_info={"status": "Discovery is currently disabled via API"}
-        ), 
-        message="Discovery results retrieved"
+            discovered_printers=[], discovery_time_ms=0, scan_info={"status": "Discovery is currently disabled via API"}
+        ),
+        message="Discovery results retrieved",
     )
 
 
@@ -722,8 +722,7 @@ async def start_discovery():
     """Start discovery (stubbed)."""
     # Just pretend we started
     return BaseRouter.build_success_response(
-        data={"task_id": "discovery-disabled", "status": "completed"},
-        message="Printer discovery is currently disabled"
+        data={"task_id": "discovery-disabled", "status": "completed"}, message="Printer discovery is currently disabled"
     )
 
 
@@ -732,9 +731,9 @@ async def start_discovery():
 async def get_discovery_status(task_id: str):
     """Get discovery status (stubbed)."""
     return BaseRouter.build_success_response(
-        data={"status": "completed", "progress": 100, "step": "done"},
-        message="Discovery status"
+        data={"status": "completed", "progress": 100, "step": "done"}, message="Discovery status"
     )
+
 
 # Printing Endpoints
 @router.post("/print/text", response_model=ResponseSchema)
@@ -939,19 +938,16 @@ async def preview_template_label(request: TemplatePreviewRequest):
 
     if result.success:
         response_data = {"preview_url": result.preview_url, "width": result.width, "height": result.height}
-        return BaseRouter.build_success_response(
-            data=response_data, message="Template preview generated successfully"
-        )
+        return BaseRouter.build_success_response(data=response_data, message="Template preview generated successfully")
     else:
         return BaseRouter.build_error_response(error=result.error, message="Failed to generate template preview")
+
 
 @router.post("/preview/template/draft", response_model=ResponseSchema)
 @standard_error_handling
 async def preview_template_draft(request: TemplateDraftPreviewRequest):
     """Preview a label from inline template config (unsaved draft)."""
-    result = await printer_manager.preview_template_draft(
-        template_config=request.template_config, data=request.data
-    )
+    result = await printer_manager.preview_template_draft(template_config=request.template_config, data=request.data)
 
     if result.success:
         response_data = {"preview_url": result.preview_url, "width": result.width, "height": result.height}
@@ -960,6 +956,7 @@ async def preview_template_draft(request: TemplateDraftPreviewRequest):
         )
     else:
         return BaseRouter.build_error_response(error=result.error, message="Failed to generate draft preview")
+
 
 @router.post("/print/advanced", response_model=ResponseSchema)
 @standard_error_handling

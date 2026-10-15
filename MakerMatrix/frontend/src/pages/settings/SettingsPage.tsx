@@ -744,7 +744,7 @@ const SettingsPage = () => {
                 setSelectedPrinterForEdit(null)
               }}
               mode={printerModalMode}
-              existingPrinter={selectedPrinterForEdit}
+              existingPrinter={selectedPrinterForEdit ?? undefined}
               onSuccess={handlePrinterModalSuccess}
             />
           </div>

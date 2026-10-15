@@ -1,5 +1,5 @@
 import math
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Tuple
 
 import qrcode
 from PIL import Image, ImageOps, ImageDraw, ImageFont
@@ -34,7 +34,7 @@ class LabelService:
         return round(inches * print_settings.dpi)
 
     @staticmethod
-    def measure_text_size(text: str, print_settings: PrintSettings, allowed_height: int) -> (int, int):
+    def measure_text_size(text: str, print_settings: PrintSettings, allowed_height: int) -> Tuple[int, int]:
         """
         Measure the width/height of a text block given the label's allowed height.
         Returns the final text width and text height in pixels (after auto-scaling).
@@ -355,12 +355,16 @@ class LabelService:
 
     @staticmethod
     def generate_combined_label(
-        part: Dict[str, Any], print_settings: PrintSettings, custom_text: Optional[str] = None
+        part: Any, print_settings: PrintSettings, custom_text: Optional[str] = None
     ) -> Image.Image:
         """
         Generate a combined label with a QR code and text. If label_len is not set,
         we auto-calculate the label length in mm based on the text size + QR code size
         with a small margin.
+
+        ``part`` is expected to expose ``part_number`` and ``part_name`` attributes
+        (typed as Any because callers pass either a PartModel or a dict-shaped
+        payload depending on entry point).
         """
         dpi = print_settings.dpi
         available_height_pixels = LabelService.get_available_height_pixels(print_settings)

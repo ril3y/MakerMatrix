@@ -1,10 +1,22 @@
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const configDir = path.dirname(fileURLToPath(import.meta.url));
+
+// vite.config.ts only serves HTTPS when the local certs exist (CI has none),
+// so the dev server URL has to follow the same rule.
+const certsPresent =
+  fs.existsSync(path.resolve(configDir, '../../certs/key.pem')) &&
+  fs.existsSync(path.resolve(configDir, '../../certs/cert.pem'));
+const devServerUrl = `${certsPresent ? 'https' : 'http'}://localhost:5173`;
 
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -18,7 +30,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://localhost:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || devServerUrl,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -76,7 +88,7 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: process.env.PLAYWRIGHT_SKIP_SERVER ? undefined : {
     command: 'npm run dev',
-    url: 'https://localhost:5173',
+    url: devServerUrl,
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
     ignoreHTTPSErrors: true,

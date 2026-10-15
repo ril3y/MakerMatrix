@@ -452,7 +452,7 @@ const PartEnrichmentModal = ({
                     </div>
                     <p className="text-sm text-secondary mb-2">{result.description}</p>
 
-                    {result.success && result.data && (
+                    {result.success && Boolean(result.data) && (
                       <div className="bg-bg-secondary p-4 rounded border text-sm">
                         <h4 className="font-medium text-green-400 mb-2">Retrieved Data:</h4>
                         <pre className="text-secondary whitespace-pre-wrap">

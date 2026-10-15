@@ -1,7 +1,7 @@
 """AI Provider Factory"""
 
 import logging
-from typing import Dict, Type
+from typing import Any, Dict, Type
 
 from .base_provider import BaseAIProvider, AIProviderNotSupportedError
 from .ollama_provider import OllamaProvider
@@ -42,7 +42,7 @@ class AIProviderFactory:
             raise
 
     @classmethod
-    def get_available_providers(cls) -> Dict[str, Dict[str, any]]:
+    def get_available_providers(cls) -> Dict[str, Dict[str, Any]]:
         """Get information about available providers"""
         return {
             "ollama": {
@@ -78,7 +78,7 @@ class AIProviderFactory:
         logger.info(f"Registered new AI provider: {name}")
 
     @classmethod
-    def get_provider_info(cls, provider_name: str) -> Dict[str, any]:
+    def get_provider_info(cls, provider_name: str) -> Dict[str, Any]:
         """Get information about a specific provider"""
         available = cls.get_available_providers()
         return available.get(provider_name.lower(), {})

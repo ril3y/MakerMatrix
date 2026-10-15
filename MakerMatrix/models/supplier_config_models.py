@@ -202,8 +202,12 @@ class SupplierCredentialsModel(SQLModel, table=True):
     """
     Supplier credentials model
 
-    Stores supplier API authentication credentials in plain text.
-    Protected by password-encrypted backup ZIPs and OS file permissions.
+    Stores supplier API authentication credentials encrypted at rest with
+    Fernet (keyed off MAKERMATRIX_ENCRYPTION_KEY). All writes go through
+    the SupplierCredentialsRepository which encrypts; reads via
+    ``get_credentials_as_dict`` (or ``to_dict(include_secrets=True)``)
+    decrypt. Legacy plaintext rows continue to work via a migration shim
+    in the encryption helper.
     """
 
     __tablename__ = "supplier_credentials"
@@ -214,15 +218,16 @@ class SupplierCredentialsModel(SQLModel, table=True):
     # Foreign key to supplier config
     supplier_config_id: str = Field(foreign_key="supplier_configs.id", unique=True)
 
-    # Credential fields (plain text)
-    api_key: Optional[str] = Field(default=None, max_length=500)
-    secret_key: Optional[str] = Field(default=None, max_length=500)
+    # Encrypted credential fields. max_length was widened to accommodate
+    # the Fernet ciphertext overhead.
+    api_key: Optional[str] = Field(default=None, max_length=2000)
+    secret_key: Optional[str] = Field(default=None, max_length=2000)
     username: Optional[str] = Field(default=None, max_length=200)
-    password: Optional[str] = Field(default=None, max_length=500)
-    oauth_token: Optional[str] = Field(default=None, max_length=1000)
-    refresh_token: Optional[str] = Field(default=None, max_length=1000)
+    password: Optional[str] = Field(default=None, max_length=2000)
+    oauth_token: Optional[str] = Field(default=None, max_length=4000)
+    refresh_token: Optional[str] = Field(default=None, max_length=4000)
 
-    # Additional custom credentials stored as JSON
+    # Additional custom credentials stored as encrypted JSON
     additional_data: Optional[str] = Field(default=None)
 
     # Credential metadata
@@ -248,17 +253,20 @@ class SupplierCredentialsModel(SQLModel, table=True):
             "has_refresh_token": self.refresh_token is not None,
         }
 
-        # Only include actual credentials if explicitly requested (for internal use)
+        # Only include actual credentials if explicitly requested (for internal use).
+        # Sensitive fields are decrypted here using the migration-aware helper.
         if include_secrets:
+            from MakerMatrix.utils.credential_encryption import decrypt_value
+
             data.update(
                 {
-                    "api_key": self.api_key,
-                    "secret_key": self.secret_key,
+                    "api_key": decrypt_value(self.api_key),
+                    "secret_key": decrypt_value(self.secret_key),
                     "username": self.username,
-                    "password": self.password,
-                    "oauth_token": self.oauth_token,
-                    "refresh_token": self.refresh_token,
-                    "additional_data": self.additional_data,
+                    "password": decrypt_value(self.password),
+                    "oauth_token": decrypt_value(self.oauth_token),
+                    "refresh_token": decrypt_value(self.refresh_token),
+                    "additional_data": decrypt_value(self.additional_data),
                 }
             )
 

@@ -16,7 +16,6 @@ from sqlmodel import SQLModel
 from MakerMatrix.models.supplier_config_models import SupplierConfigModel
 from MakerMatrix.services.system.auth_service import AuthService
 
-
 # Test database setup - use in-memory database for complete isolation
 import tempfile
 import os

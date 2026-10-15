@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock import.meta.env directly
-const mockEnv = {
+const mockEnv: { DEV: boolean; VITE_API_URL: string | undefined } = {
   DEV: true,
   VITE_API_URL: undefined,
 }
