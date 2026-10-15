@@ -69,11 +69,13 @@ class PartAllocationRepository:
     @staticmethod
     def get_allocations_at_location(session: Session, location_id: str) -> Sequence[PartLocationAllocation]:
         """Get all part allocations at a specific location"""
-        return list(session.exec(
-            select(PartLocationAllocation)
-            .options(selectinload(PartLocationAllocation.part), selectinload(PartLocationAllocation.location))
-            .where(PartLocationAllocation.location_id == location_id)
-        ).all())
+        return list(
+            session.exec(
+                select(PartLocationAllocation)
+                .options(selectinload(PartLocationAllocation.part), selectinload(PartLocationAllocation.location))
+                .where(PartLocationAllocation.location_id == location_id)
+            ).all()
+        )
 
     @staticmethod
     def create_allocation(

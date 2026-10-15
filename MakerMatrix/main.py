@@ -250,9 +250,7 @@ app = FastAPI(
     docs_url="/docs",  # Enable API documentation
     redoc_url="/redoc",  # Enable ReDoc documentation
     # Temporarily disable OpenAPI generation for problematic schema
-    generate_unique_id_function=lambda route: (
-        f"{route.tags[0]}-{route.name}" if route.tags else route.name
-    ),
+    generate_unique_id_function=lambda route: (f"{route.tags[0]}-{route.name}" if route.tags else route.name),
 )
 
 # Register exception handlers
