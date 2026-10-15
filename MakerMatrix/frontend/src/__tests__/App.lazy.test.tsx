@@ -15,7 +15,7 @@ import { lazy, Suspense } from 'react'
 
 // Mirror App.tsx's import map. If a lazy import target ever moves, this
 // failing test points right at the dead path.
-const LAZY_ROUTES: Array<[string, () => Promise<{ default: React.ComponentType<unknown> }>]> = [
+const LAZY_ROUTES: Array<[string, () => Promise<{ default: React.ComponentType }>]> = [
   ['LoginPage', () => import('@/pages/auth/LoginPage')],
   ['DashboardPage', () => import('@/pages/DashboardPage')],
   ['PartsPage', () => import('@/pages/parts/PartsPage')],
