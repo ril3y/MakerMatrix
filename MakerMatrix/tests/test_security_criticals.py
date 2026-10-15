@@ -301,25 +301,33 @@ class TestTokenTypeEnforcement:
 
 
 class TestPathTraversal:
-    def test_image_path_traversal_blocked(self, client):
+    # The utility routes are auth-gated, so these requests carry an admin
+    # token; otherwise they stop at 401 and never reach the filename validator.
+    @pytest.fixture()
+    def headers(self, auth_service):
+        return {"Authorization": f"Bearer {auth_service.create_access_token({'sub': 'admin'})}"}
+
+    def test_image_path_traversal_blocked(self, client, headers):
         # URL-encoded "../../../etc/passwd"
-        resp = client.get("/api/utility/get_image/..%2F..%2F..%2Fetc%2Fpasswd")
+        resp = client.get("/api/utility/get_image/..%2F..%2F..%2Fetc%2Fpasswd", headers=headers)
         assert resp.status_code in (400, 404), resp.text
         assert resp.status_code != 200
 
-    def test_image_double_dot_blocked(self, client):
-        resp = client.get("/api/utility/get_image/..")
-        assert resp.status_code in (400, 404)
+    def test_image_double_dot_blocked(self, client, headers):
+        # Percent-encode the dots: the HTTP client collapses a literal ".."
+        # segment before sending, which would route to /api/utility/ instead.
+        resp = client.get("/api/utility/get_image/%2E%2E", headers=headers)
+        assert resp.status_code in (400, 404), resp.text
 
-    def test_image_with_slash_blocked(self, client):
+    def test_image_with_slash_blocked(self, client, headers):
         # raw slashes - many servers route this away, but starlette can be tricky;
         # the endpoint validation alone is also covered by the explicit unit test below.
-        resp = client.get("/api/utility/get_image/foo%2Fbar.png")
+        resp = client.get("/api/utility/get_image/foo%2Fbar.png", headers=headers)
         # Could be 400/404 depending on routing; we just require non-200.
         assert resp.status_code != 200
 
-    def test_datasheet_path_traversal_blocked(self, client):
-        resp = client.get("/api/utility/static/datasheets/..%2Fmakermatrix.db")
+    def test_datasheet_path_traversal_blocked(self, client, headers):
+        resp = client.get("/api/utility/static/datasheets/..%2Fmakermatrix.db", headers=headers)
         assert resp.status_code in (400, 404)
         assert resp.status_code != 200
 
