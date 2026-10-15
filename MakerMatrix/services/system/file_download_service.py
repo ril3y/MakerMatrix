@@ -146,9 +146,7 @@ class FileDownloadService:
         `requests` + disk I/O onto the default thread pool so it doesn't stall
         the FastAPI event loop.
         """
-        return await asyncio.to_thread(
-            self.download_datasheet, url, part_number, supplier, file_uuid
-        )
+        return await asyncio.to_thread(self.download_datasheet, url, part_number, supplier, file_uuid)
 
     def download_image(self, url: str, part_number: str, supplier: str = "") -> Optional[Dict[str, Any]]:
         """Download component image and return file info with UUID-based storage"""
@@ -247,9 +245,7 @@ class FileDownloadService:
             logger.error(f"Error downloading image from {url}: {e}")
             return None
 
-    async def download_image_async(
-        self, url: str, part_number: str, supplier: str = ""
-    ) -> Optional[Dict[str, Any]]:
+    async def download_image_async(self, url: str, part_number: str, supplier: str = "") -> Optional[Dict[str, Any]]:
         """Async wrapper for `download_image` that offloads the blocking
         `requests` + disk I/O onto the default thread pool so it doesn't stall
         the FastAPI event loop.

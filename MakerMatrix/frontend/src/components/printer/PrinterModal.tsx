@@ -747,7 +747,7 @@ const PrinterModal = ({
                     className="input w-full"
                     value={labelLength}
                     onChange={(e) => setLabelLength(Number(e.target.value))}
-                    disabled={selectedLabelSize && !selectedLabelSize.includes('mm')}
+                    disabled={!!selectedLabelSize && !selectedLabelSize.includes('mm')}
                   />
                 </div>
               </div>

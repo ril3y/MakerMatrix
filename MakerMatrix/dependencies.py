@@ -112,6 +112,7 @@ def get_backup_repository():
         BackupRepository: A new BackupRepository instance
     """
     from MakerMatrix.repositories.backup_repository import BackupRepository
+
     engine = get_engine()
     yield BackupRepository(engine)
 
@@ -128,4 +129,5 @@ def get_task_service():
         TaskService: The module-level task_service singleton
     """
     from MakerMatrix.services.system.task_service import task_service
+
     yield task_service

@@ -98,7 +98,7 @@ describe('SupplierConfigPage', () => {
       () => {
         const pageContent = document.body.textContent
         expect(pageContent).toBeTruthy()
-        expect(pageContent.length).toBeGreaterThan(0)
+        expect(pageContent?.length ?? 0).toBeGreaterThan(0)
       },
       { timeout: 3000 }
     )

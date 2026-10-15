@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import asyncio
 import logging
+from typing import Any, Dict, Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -52,7 +53,6 @@ from MakerMatrix.services.system.task_service import task_service
 from MakerMatrix.services.system.websocket_service import start_ping_task
 from MakerMatrix.services.printer.printer_manager_service import initialize_default_printers
 from MakerMatrix.startup import StartupStep, run_startup_steps
-
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ async def _step_auto_configure_suppliers_from_env() -> None:
         if cred_key and available_creds[cred_key]:
             try:
                 # Check if supplier is already configured
-                existing_config = None
+                existing_config: Optional[Dict[str, Any]] = None
                 try:
                     existing_config = config_service.get_supplier_config(supplier_name)
                 except Exception:
@@ -162,9 +162,7 @@ async def _step_seed_default_csv_import_config() -> None:
 
     session = Session(engine)
     try:
-        existing_config = session.exec(
-            select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")
-        ).first()
+        existing_config = session.exec(select(CSVImportConfigModel).where(CSVImportConfigModel.id == "default")).first()
         if not existing_config:
             default_config = CSVImportConfigModel(
                 id="default",
@@ -278,7 +276,7 @@ app = FastAPI(
     docs_url="/docs",  # Enable API documentation
     redoc_url="/redoc",  # Enable ReDoc documentation
     # Temporarily disable OpenAPI generation for problematic schema
-    generate_unique_id_function=lambda route: route.tags[0] + "-" + route.name if route.tags else route.name,
+    generate_unique_id_function=lambda route: (f"{route.tags[0]}-{route.name}" if route.tags else route.name),
 )
 
 # Register exception handlers
@@ -327,7 +325,9 @@ from MakerMatrix.middleware.guest_rate_limit import get_guest_identifier, guest_
 # Initialize slowapi limiter
 limiter = Limiter(key_func=get_guest_identifier)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# slowapi types its handler as (Request, RateLimitExceeded) but Starlette's
+# add_exception_handler expects (Request, Exception); the runtime contract holds.
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 # Add the middleware to the app
 app.middleware("http")(guest_rate_limit_middleware)
@@ -698,7 +698,9 @@ def custom_openapi():
         }
 
 
-app.openapi = custom_openapi
+# FastAPI documents this exact override pattern, but mypy flags any assignment
+# to a bound method as suspect.
+app.openapi = custom_openapi  # type: ignore[method-assign]
 
 # Static file serving for React frontend
 frontend_dist_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")

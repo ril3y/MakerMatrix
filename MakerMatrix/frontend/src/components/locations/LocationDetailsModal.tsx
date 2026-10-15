@@ -199,7 +199,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
 
             return {
               id: part.id,
-              part_name: part.name || part.part_name,
+              part_name: part.name || part.part_name || '',
               part_number: part.part_number,
               description: part.description,
               quantity_at_location: locationAllocation?.quantity_at_location || 0,
@@ -216,7 +216,7 @@ const LocationDetailsModal: React.FC<LocationDetailsModalProps> = ({
             // Fallback to part.quantity if allocation fetch fails
             return {
               id: part.id,
-              part_name: part.name || part.part_name,
+              part_name: part.name || part.part_name || '',
               part_number: part.part_number,
               description: part.description,
               quantity_at_location: part.quantity || 0,

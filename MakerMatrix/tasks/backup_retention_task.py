@@ -159,7 +159,7 @@ class BackupRetentionTask(BaseTask):
 
     def _get_backup_files(self, backup_dir: Path) -> List[Path]:
         """Get all backup files (both .zip and .zip.enc)"""
-        backup_files = []
+        backup_files: List[Path] = []
 
         # Get .zip files
         backup_files.extend(backup_dir.glob("*.zip"))

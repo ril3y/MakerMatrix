@@ -51,7 +51,6 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_test_db_path}"
 from MakerMatrix.main import app  # noqa: E402
 from MakerMatrix.services.system.auth_service import AuthService  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -302,13 +301,25 @@ class TestTokenTypeEnforcement:
 
 
 class TestPathTraversal:
-    def test_image_path_traversal_blocked(self, client):
+    # The utility routes are auth-gated, so these requests carry an admin
+    # token; otherwise they stop at 401 and never reach the filename validator.
+    @pytest.fixture()
+    def headers(self, auth_service):
+        return {"Authorization": f"Bearer {auth_service.create_access_token({'sub': 'admin'})}"}
+
+    def test_image_path_traversal_blocked(self, client, headers):
         # URL-encoded "../../../etc/passwd"
-        resp = client.get("/api/utility/get_image/..%2F..%2F..%2Fetc%2Fpasswd")
+        resp = client.get("/api/utility/get_image/..%2F..%2F..%2Fetc%2Fpasswd", headers=headers)
         assert resp.status_code in (400, 404), resp.text
         assert resp.status_code != 200
 
-    def test_image_double_dot_blocked(self, client):
+    def test_image_double_dot_blocked(self, client, headers):
+        # Percent-encode the dots: the HTTP client collapses a literal ".."
+        # segment before sending, which would route to /api/utility/ instead.
+        resp = client.get("/api/utility/get_image/%2E%2E", headers=headers)
+        assert resp.status_code in (400, 404), resp.text
+
+    def test_image_literal_double_dot_blocked_by_middleware(self, client):
         # ``..`` in the URL path is stripped client-side by httpx/urllib's URL
         # normalization before TestClient ever sends the request, so going
         # through ``client.get(...)`` we cannot exercise the middleware
@@ -344,23 +355,21 @@ class TestPathTraversal:
         }
         asyncio.run(app(scope, receive, send))
 
-        status = next(
-            m["status"] for m in received if m["type"] == "http.response.start"
-        )
+        status = next(m["status"] for m in received if m["type"] == "http.response.start")
         # The middleware returns 400 with our explicit error body. 404 is
         # accepted as a fallback in case a future refactor moves the guard
         # back into the route handler.
         assert status in (400, 404), f"Expected 400/404 from middleware, got {status}"
 
-    def test_image_with_slash_blocked(self, client):
+    def test_image_with_slash_blocked(self, client, headers):
         # raw slashes - many servers route this away, but starlette can be tricky;
         # the endpoint validation alone is also covered by the explicit unit test below.
-        resp = client.get("/api/utility/get_image/foo%2Fbar.png")
+        resp = client.get("/api/utility/get_image/foo%2Fbar.png", headers=headers)
         # Could be 400/404 depending on routing; we just require non-200.
         assert resp.status_code != 200
 
-    def test_datasheet_path_traversal_blocked(self, client):
-        resp = client.get("/api/utility/static/datasheets/..%2Fmakermatrix.db")
+    def test_datasheet_path_traversal_blocked(self, client, headers):
+        resp = client.get("/api/utility/static/datasheets/..%2Fmakermatrix.db", headers=headers)
         assert resp.status_code in (400, 404)
         assert resp.status_code != 200
 
@@ -515,9 +524,7 @@ class TestDevManagerBinding:
         # The class is named EnhancedServerManager in this repo.
         src = inspect.getsource(dm.EnhancedServerManager.__init__)
         assert "127.0.0.1" in src, "api_host default must be loopback"
-        assert 'self.api_host = "0.0.0.0"' not in src, (
-            "dev manager must not unconditionally bind to all interfaces"
-        )
+        assert 'self.api_host = "0.0.0.0"' not in src, "dev manager must not unconditionally bind to all interfaces"
 
         # Stronger check: actually construct the manager (no server is started
         # until run() is called) and assert the attribute on the instance.
@@ -525,9 +532,7 @@ class TestDevManagerBinding:
             instance = dm.EnhancedServerManager()
         except Exception as exc:  # pragma: no cover - env-dependent
             pytest.skip(f"EnhancedServerManager construction failed in this env: {exc}")
-        assert instance.api_host == "127.0.0.1", (
-            f"expected api_host=='127.0.0.1', got {instance.api_host!r}"
-        )
+        assert instance.api_host == "127.0.0.1", f"expected api_host=='127.0.0.1', got {instance.api_host!r}"
 
     def test_api_host_honors_env_override(self, monkeypatch):
         """Setting DEV_MANAGER_API_HOST overrides the loopback default."""

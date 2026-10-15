@@ -72,9 +72,7 @@ def _path_is_traversal(path: str) -> bool:
 class PathTraversalMiddleware(BaseHTTPMiddleware):
     """Reject path-traversal sequences before routing/auth/CORS run."""
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable]
-    ):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable]):
         # Check the parsed URL path (already %-decoded by Starlette).
         if _path_is_traversal(request.url.path):
             logger.warning("Blocked path-traversal request: path=%s", request.url.path)
@@ -94,9 +92,7 @@ class PathTraversalMiddleware(BaseHTTPMiddleware):
             except (UnicodeDecodeError, AttributeError):
                 decoded = ""
             if decoded and _path_is_traversal(decoded):
-                logger.warning(
-                    "Blocked path-traversal request (raw): raw_path=%r", raw_path
-                )
+                logger.warning("Blocked path-traversal request (raw): raw_path=%r", raw_path)
                 return JSONResponse(
                     status_code=400,
                     content={
@@ -129,9 +125,7 @@ async def path_traversal_middleware(request: Request, call_next):
         except (UnicodeDecodeError, AttributeError):
             decoded = ""
         if decoded and _path_is_traversal(decoded):
-            logger.warning(
-                "Blocked path-traversal request (raw): raw_path=%r", raw_path
-            )
+            logger.warning("Blocked path-traversal request (raw): raw_path=%r", raw_path)
             return JSONResponse(
                 status_code=400,
                 content={"status": "error", "message": "Invalid request path", "data": None},

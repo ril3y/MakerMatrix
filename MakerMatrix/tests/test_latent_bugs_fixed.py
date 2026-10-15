@@ -42,7 +42,6 @@ from MakerMatrix.routers import parts_routes
 from MakerMatrix.services.base_service import ServiceResponse
 from MakerMatrix.services.data.location_service import LocationService
 
-
 # ---------------------------------------------------------------------------
 # Bug 1 — resolve_location_name uses get_location_details and returns the
 # name, not the bare UUID.
@@ -71,13 +70,9 @@ async def test_update_part_resolves_location_name_in_activity_log(monkeypatch):
     # SimpleNamespace with only the real method present.
     def fake_get_location_details(loc_id: str) -> ServiceResponse:
         if loc_id == location_id_old:
-            return ServiceResponse.success_response(
-                "ok", data={"id": loc_id, "name": "Shelf A — old"}
-            )
+            return ServiceResponse.success_response("ok", data={"id": loc_id, "name": "Shelf A — old"})
         if loc_id == location_id_new:
-            return ServiceResponse.success_response(
-                "ok", data={"id": loc_id, "name": "Drawer B — new"}
-            )
+            return ServiceResponse.success_response("ok", data={"id": loc_id, "name": "Drawer B — new"})
         return ServiceResponse.error_response("not found")
 
     location_service = SimpleNamespace(get_location_details=fake_get_location_details)
@@ -99,12 +94,8 @@ async def test_update_part_resolves_location_name_in_activity_log(monkeypatch):
     }
 
     part_service = MagicMock()
-    part_service.get_part_by_id.return_value = ServiceResponse.success_response(
-        "ok", data=original_part
-    )
-    part_service.update_part.return_value = ServiceResponse.success_response(
-        "ok", data=updated_part
-    )
+    part_service.get_part_by_id.return_value = ServiceResponse.success_response("ok", data=original_part)
+    part_service.update_part.return_value = ServiceResponse.success_response("ok", data=updated_part)
 
     # Capture activity log calls.
     captured: List[Dict[str, Any]] = []
@@ -124,9 +115,7 @@ async def test_update_part_resolves_location_name_in_activity_log(monkeypatch):
     async def _broadcast_noop(*args, **kwargs):
         return None
 
-    monkeypatch.setattr(
-        parts_routes.websocket_manager, "broadcast_crud_event", _broadcast_noop
-    )
+    monkeypatch.setattr(parts_routes.websocket_manager, "broadcast_crud_event", _broadcast_noop)
 
     # Build a minimal PartUpdate that changes location_id.
     from MakerMatrix.schemas.part_create import PartUpdate
@@ -137,9 +126,7 @@ async def test_update_part_resolves_location_name_in_activity_log(monkeypatch):
     # service ever reads. The fake activity service ignores it anyway.
     request = MagicMock()
 
-    current_user = SimpleNamespace(
-        id="user-1", username="tester", roles=[], to_dict=lambda: {}
-    )
+    current_user = SimpleNamespace(id="user-1", username="tester", roles=[], to_dict=lambda: {})
 
     # Run the route function directly.
     await parts_routes.update_part(
@@ -177,8 +164,7 @@ def test_resolve_location_name_helper_uses_correct_method_name():
         "which does not exist on LocationService."
     )
     assert "get_location_details" in src, (
-        "parts_routes.update_part should call LocationService.get_location_details "
-        "for activity-log name resolution."
+        "parts_routes.update_part should call LocationService.get_location_details " "for activity-log name resolution."
     )
 
 
@@ -212,9 +198,7 @@ async def test_handle_enrichment_extracts_task_id_from_service_response(monkeypa
     fake_supplier = "DigiKey"
 
     # Stub get_available_suppliers to include our test supplier.
-    monkeypatch.setattr(
-        parts_routes, "get_available_suppliers", lambda: [fake_supplier]
-    )
+    monkeypatch.setattr(parts_routes, "get_available_suppliers", lambda: [fake_supplier])
 
     # Stub supplier_config_service to accept the supplier.
     config_service = MagicMock()
@@ -236,8 +220,7 @@ async def test_handle_enrichment_extracts_task_id_from_service_response(monkeypa
         # If the previous bug fires (AttributeError on .id), this never runs.
         # Assert the helper was given the string ID from response.data["id"].
         assert task_id == "task-uuid-123", (
-            f"Expected task_id 'task-uuid-123' from ServiceResponse.data['id'], "
-            f"got {task_id!r}"
+            f"Expected task_id 'task-uuid-123' from ServiceResponse.data['id'], " f"got {task_id!r}"
         )
         return None  # simulate timeout, returns no enriched data
 
@@ -258,9 +241,9 @@ async def test_handle_enrichment_extracts_task_id_from_service_response(monkeypa
     # Should not have raised AttributeError. The message should reflect the
     # timeout (since fake_wait returned None), not an exception swallowed by
     # the broad except.
-    assert "Enrichment task started" in result or "Enrichment failed" not in result, (
-        f"Unexpected enrichment result: {result!r}"
-    )
+    assert (
+        "Enrichment task started" in result or "Enrichment failed" not in result
+    ), f"Unexpected enrichment result: {result!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -285,24 +268,18 @@ def test_location_service_methods_are_no_longer_static_with_cls_repo():
     cls = tree.body[0]
     assert isinstance(cls, ast.ClassDef), "Expected LocationService ClassDef at top"
 
-    methods = {
-        node.name: node for node in cls.body if isinstance(node, ast.FunctionDef)
-    }
+    methods = {node.name: node for node in cls.body if isinstance(node, ast.FunctionDef)}
 
     for name in ("get_parts_effected_locations", "delete_all_locations"):
         assert name in methods, f"{name} missing from LocationService"
-        decorators = [
-            d.id for d in methods[name].decorator_list if isinstance(d, ast.Name)
-        ]
+        decorators = [d.id for d in methods[name].decorator_list if isinstance(d, ast.Name)]
         assert "staticmethod" not in decorators, (
             f"LocationService.{name} is still @staticmethod but references "
             f"cls.location_repo — calls always raise AttributeError."
         )
         # First arg must be ``self`` now.
         args = methods[name].args.args
-        assert args and args[0].arg == "self", (
-            f"LocationService.{name} must take self as its first arg now."
-        )
+        assert args and args[0].arg == "self", f"LocationService.{name} must take self as its first arg now."
 
 
 def test_get_parts_effected_locations_instance_method_callable(memory_test_engine):
@@ -316,9 +293,7 @@ def test_get_parts_effected_locations_instance_method_callable(memory_test_engin
     # Use a clearly fake id; the method should handle "no such location"
     # gracefully and return [].
     result = service.get_parts_effected_locations("nonexistent-id")
-    assert isinstance(result, list), (
-        f"Expected list of affected part IDs, got {type(result).__name__}"
-    )
+    assert isinstance(result, list), f"Expected list of affected part IDs, got {type(result).__name__}"
     assert result == []
 
 
@@ -394,9 +369,7 @@ def _send_raw_asgi_request(path: str, raw_path: bytes | None = None) -> tuple[in
     asyncio.run(app(scope, receive, send))
 
     status = next(m["status"] for m in received if m["type"] == "http.response.start")
-    body = b"".join(
-        m.get("body", b"") for m in received if m["type"] == "http.response.body"
-    )
+    body = b"".join(m.get("body", b"") for m in received if m["type"] == "http.response.body")
     return status, body
 
 
@@ -415,9 +388,7 @@ def test_image_double_dot_blocked_by_middleware():
     BEFORE auth runs.
     """
     status, body = _send_raw_asgi_request("/api/utility/get_image/..")
-    assert status == 400, (
-        f"Expected 400 from path-traversal middleware, got {status}: {body!r}"
-    )
+    assert status == 400, f"Expected 400 from path-traversal middleware, got {status}: {body!r}"
     import json
 
     payload = json.loads(body)
@@ -439,9 +410,7 @@ def test_image_url_encoded_traversal_blocked_by_middleware():
         path="/api/utility/get_image/../../etc/passwd",
         raw_path=b"/api/utility/get_image/..%2F..%2Fetc%2Fpasswd",
     )
-    assert status == 400, (
-        f"Expected 400 for URL-encoded traversal, got {status}: {body!r}"
-    )
+    assert status == 400, f"Expected 400 for URL-encoded traversal, got {status}: {body!r}"
 
 
 def test_legit_image_path_not_blocked_by_middleware():
@@ -459,9 +428,9 @@ def test_legit_image_path_not_blocked_by_middleware():
     # our-message is fine — typically 401 from the auth gate.
     if response.status_code == 400:
         body = response.json()
-        assert "Invalid request path" not in body.get("message", ""), (
-            "Middleware incorrectly blocked a legitimate image id."
-        )
+        assert "Invalid request path" not in body.get(
+            "message", ""
+        ), "Middleware incorrectly blocked a legitimate image id."
 
 
 def test_legit_path_with_double_dot_in_filename_not_blocked():
@@ -474,9 +443,9 @@ def test_legit_path_with_double_dot_in_filename_not_blocked():
     response = client.get("/api/utility/get_image/foo..bar.png")
     if response.status_code == 400:
         body = response.json()
-        assert "Invalid request path" not in body.get("message", ""), (
-            "Middleware incorrectly blocked a filename that merely contains '..'."
-        )
+        assert "Invalid request path" not in body.get(
+            "message", ""
+        ), "Middleware incorrectly blocked a filename that merely contains '..'."
 
 
 def test_path_traversal_middleware_runs_outermost():

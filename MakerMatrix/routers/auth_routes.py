@@ -48,8 +48,12 @@ async def login(request: Request):
     # Try to get form data first (for Swagger UI compatibility)
     try:
         form = await request.form()
-        username = form.get("username")
-        password = form.get("password")
+        # form.get returns UploadFile | str | None; the login endpoint only
+        # accepts string values, so coerce defensively.
+        username_raw = form.get("username")
+        password_raw = form.get("password")
+        username = username_raw if isinstance(username_raw, str) else None
+        password = password_raw if isinstance(password_raw, str) else None
         if username and password:
             print(f"[DEBUG] /auth/login: using form data, username={username}")
             user = auth_service.authenticate_user(username, password)

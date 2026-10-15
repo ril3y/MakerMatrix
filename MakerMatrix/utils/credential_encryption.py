@@ -50,7 +50,7 @@ _PLACEHOLDER_KEY = "your_encryption_key_here"
 
 _MISSING_KEY_MESSAGE = (
     "MAKERMATRIX_ENCRYPTION_KEY is missing or unset. "
-    "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\" "
+    'Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" '
     "and set it in your environment or .env file. "
     "The application refuses to handle supplier credentials without a valid key."
 )
@@ -122,9 +122,7 @@ def validate_encryption_key() -> None:
         try:
             _get_fernet()
         except RuntimeError as exc:
-            logger.warning(
-                "Test environment is missing MAKERMATRIX_ENCRYPTION_KEY: %s", exc
-            )
+            logger.warning("Test environment is missing MAKERMATRIX_ENCRYPTION_KEY: %s", exc)
         return
 
     # Production / dev: raising here will bubble out of lifespan and prevent
@@ -176,9 +174,7 @@ def decrypt_value(ciphertext: Optional[str]) -> Optional[str]:
     except (InvalidToken, ValueError):
         # Not actually encrypted with this key. Fall back to the stored
         # value so we never blow up reads from older databases.
-        logger.warning(
-            "Failed to decrypt supplier credential value; returning stored value as plaintext fallback"
-        )
+        logger.warning("Failed to decrypt supplier credential value; returning stored value as plaintext fallback")
         return ciphertext
 
 

@@ -81,7 +81,7 @@ def list_available_env_credentials() -> Dict[str, list]:
     Returns:
         Dictionary mapping supplier names to lists of available credential fields
     """
-    available = {}
+    available: dict[str, list[str]] = {}
 
     # Common supplier name patterns
     supplier_patterns = [

@@ -290,7 +290,7 @@ export const CredentialEditor: React.FC<CredentialEditorProps> = ({
           const currentValue = form.watch(field.name) || ''
           const isConfigured = credentialStatus?.configured_fields?.includes(field.name) || false
           const shouldShow = showValues[field.name]
-          const hasValue = currentValue.length > 0
+          const hasValue = String(currentValue).length > 0
 
           return (
             <div key={field.name} className="space-y-1">

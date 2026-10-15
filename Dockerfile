@@ -7,7 +7,7 @@ ARG BUILD_DATE
 ARG VCS_REF
 
 # Stage 1: Frontend Build
-FROM node:18-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 
 WORKDIR /frontend
 
@@ -20,8 +20,8 @@ RUN npm ci --ignore-scripts
 # Copy frontend source
 COPY MakerMatrix/frontend/ ./
 
-# Build frontend for production (skip type checking for now - TODO: fix TS errors)
-RUN npx vite build
+# Build frontend for production (runs tsc + vite build per package.json)
+RUN npm run build
 
 # Stage 2: Backend Runtime
 FROM python:3.12-slim

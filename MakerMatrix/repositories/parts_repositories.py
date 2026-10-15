@@ -596,8 +596,7 @@ class PartRepository:
                 # expression and inject SQL or alter the query semantics.
                 if not _JSON_PROP_KEY_PATTERN.match(prop_key):
                     raise ValueError(
-                        "Invalid additional_properties key: must match "
-                        "[A-Za-z0-9_] and be 1-64 characters long"
+                        "Invalid additional_properties key: must match " "[A-Za-z0-9_] and be 1-64 characters long"
                     )
 
                 # Build JSON path

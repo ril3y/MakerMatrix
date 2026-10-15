@@ -7,11 +7,14 @@ import socket
 import subprocess
 import time
 import threading
-from typing import Dict, List, Any
+from typing import Dict, List, Any, TYPE_CHECKING
 import ipaddress
 
 from MakerMatrix.models.task_models import TaskStatus, UpdateTaskRequest
 from MakerMatrix.tasks.base_task import BaseTask
+
+if TYPE_CHECKING:
+    from MakerMatrix.models.task_models import TaskModel
 
 
 class PrinterDiscoveryTask(BaseTask):

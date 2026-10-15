@@ -59,22 +59,19 @@ export class PartsService {
   }
   async createPart(data: CreatePartRequest): Promise<Part> {
     // Map frontend format to backend format
-    const backendData = {
-      ...data,
+    const { name: _name, categories: _categories, ...rest } = data
+    const backendData: Record<string, unknown> = {
+      ...rest,
       part_name: data.name,
       category_names: data.categories || [],
     }
 
-    // Remove frontend-only fields
-    delete backendData.name
-    delete backendData.categories
-
-    // Convert empty strings to null for foreign key fields to prevent constraint errors
+    // Convert empty strings to undefined for foreign key fields to prevent constraint errors
     if (backendData.location_id === '') {
-      backendData.location_id = null
+      backendData.location_id = undefined
     }
     if (backendData.supplier_url === '') {
-      backendData.supplier_url = null
+      backendData.supplier_url = undefined
     }
 
     const response = await apiClient.post<ApiResponse<BackendPart>>(
@@ -119,25 +116,21 @@ export class PartsService {
   }
 
   async updatePart(data: UpdatePartRequest): Promise<Part> {
-    const { id, ...updateData } = data
+    const { id, name: _name, categories: _categories, ...updateData } = data
 
     // Map frontend format to backend format
-    const backendData = {
+    const backendData: Record<string, unknown> = {
       ...updateData,
-      part_name: updateData.name,
-      category_names: updateData.categories || [],
+      part_name: data.name,
+      category_names: data.categories || [],
     }
 
-    // Remove frontend-only fields
-    delete backendData.name
-    delete backendData.categories
-
-    // Convert empty strings to null for foreign key fields to prevent constraint errors
+    // Convert empty strings to undefined for foreign key fields to prevent constraint errors
     if (backendData.location_id === '') {
-      backendData.location_id = null
+      backendData.location_id = undefined
     }
     if (backendData.supplier_url === '') {
-      backendData.supplier_url = null
+      backendData.supplier_url = undefined
     }
 
     const response = await apiClient.put<ApiResponse<BackendPart>>(

@@ -65,7 +65,7 @@ class PriceUpdateTask(BaseTask):
             await self.update_progress(task, 20, f"Found {len(parts)} parts to update")
 
             # Group parts by supplier for efficient processing
-            parts_by_supplier = {}
+            parts_by_supplier: dict[str, list[Any]] = {}
             for part in parts:
                 supplier = part.supplier or part.part_vendor
                 if supplier:

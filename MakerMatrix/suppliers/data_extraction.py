@@ -221,7 +221,7 @@ class DataExtractor:
         Returns:
             ExtractionResult with single PricingBreak object
         """
-        warnings = []
+        warnings: list[str] = []
 
         for path in price_paths:
             price_value = self.safe_get(data, path.split("."))
@@ -437,7 +437,7 @@ class DataExtractor:
         Returns:
             ExtractionResult with stock quantity (int or None if unavailable)
         """
-        warnings = []
+        warnings: list[str] = []
 
         # First check availability if paths provided
         if availability_paths:
