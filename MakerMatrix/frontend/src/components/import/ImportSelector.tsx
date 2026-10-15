@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -956,21 +955,6 @@ const ImportSelector: React.FC<ImportSelectorProps> = ({ onImportComplete }) => 
                     The selected parser is not available. Please select a different parser or check
                     your configuration.
                   </p>
-                  {selectedParserInfo && !selectedParserInfo.is_configured && (
-                    <div className="mt-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded border border-yellow-300 dark:border-yellow-700">
-                      <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
-                        <strong>Note:</strong> {selectedParserInfo.name} is not configured in your
-                        system.
-                      </p>
-                      <a
-                        href="/settings/suppliers"
-                        className="inline-flex items-center px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-md transition-colors"
-                      >
-                        <Settings className="w-4 h-4 mr-1.5" />
-                        Configure {selectedParserInfo.name}
-                      </a>
-                    </div>
-                  )}
                 </div>
               )}
             </motion.div>

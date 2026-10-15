@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 /**
  * Edit Supplier Configuration Modal
  *
@@ -37,17 +36,36 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
   // Backend-driven capabilities and credential schema
   const [availableCapabilities, setAvailableCapabilities] = useState<string[]>([])
   const [credentialSchema, setCredentialSchema] = useState<
-    Array<{ name: string; type: string; required: boolean; description?: string }>
+    Array<{
+      name: string
+      label: string
+      field_type: 'url' | 'text' | 'email' | 'file' | 'password'
+      required: boolean
+      description?: string
+      placeholder?: string
+      help_text?: string
+    }>
   >([])
   const [loadingCapabilities, setLoadingCapabilities] = useState(true)
 
   // Track current credentials for testing and credential status
   const [currentCredentials, setCurrentCredentials] = useState<Record<string, string>>({})
-  const [credentialStatus, setCredentialStatus] = useState<{
-    fully_configured?: boolean
-    configured_fields?: string[]
-    missing_fields?: string[]
-  } | null>(null)
+  const [credentialStatus, setCredentialStatus] = useState<
+    | {
+        supplier_name: string
+        is_configured: boolean
+        connection_status?: {
+          success: boolean
+          message: string
+        }
+        credential_fields: Record<string, unknown>
+        missing_credentials: string[]
+        total_fields: number
+        configured_fields: string[]
+        configured_fields_count: number
+      }
+    | undefined
+  >(undefined)
 
   const [config, setConfig] = useState<SupplierConfigUpdate>({
     display_name: supplier.display_name,
@@ -106,7 +124,31 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
         const schemaData = await schemaResponse.json()
         console.log('Schema data:', schemaData)
         if (schemaData.status === 'success') {
-          setCredentialSchema(schemaData.data)
+          // Backend may use 'type' instead of 'field_type' — normalize
+          const normalizedSchema = (
+            schemaData.data as Array<{
+              name: string
+              label?: string
+              type?: string
+              field_type?: string
+              required: boolean
+              description?: string
+              placeholder?: string
+              help_text?: string
+            }>
+          ).map((field) => ({
+            name: field.name,
+            label: field.label ?? field.name,
+            field_type:
+              (field.field_type as 'url' | 'text' | 'email' | 'file' | 'password' | undefined) ??
+              (field.type as 'url' | 'text' | 'email' | 'file' | 'password' | undefined) ??
+              'text',
+            required: field.required,
+            description: field.description,
+            placeholder: field.placeholder,
+            help_text: field.help_text,
+          }))
+          setCredentialSchema(normalizedSchema)
         } else {
           throw new Error(`Credentials schema API failed: ${schemaData.message || 'Unknown error'}`)
         }
@@ -487,8 +529,18 @@ export const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                 <CredentialEditor
                   supplierName={supplier.supplier_name}
                   credentialSchema={credentialSchema}
-                  currentlyConfigured={credentialStatus?.fully_configured || false}
-                  credentialStatus={credentialStatus}
+                  currentlyConfigured={credentialStatus?.is_configured || false}
+                  credentialStatus={
+                    credentialStatus
+                      ? {
+                          fully_configured: credentialStatus.is_configured,
+                          has_database_credentials: credentialStatus.configured_fields.length > 0,
+                          has_environment_credentials: false,
+                          configured_fields: credentialStatus.configured_fields,
+                          missing_required: credentialStatus.missing_credentials,
+                        }
+                      : undefined
+                  }
                   onCredentialsReady={handleCredentialsReady}
                   onSave={handleCredentialsSave}
                   loading={loadingCapabilities}

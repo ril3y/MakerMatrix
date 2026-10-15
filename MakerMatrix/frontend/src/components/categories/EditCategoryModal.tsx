@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { useMemo } from 'react'
 import { Tag } from 'lucide-react'
 import CrudModal from '@/components/ui/CrudModal'
@@ -34,17 +33,18 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
   const validate = (data: UpdateCategoryRequest): Record<string, string> => {
     const errors: Record<string, string> = {}
 
-    const validation = categoriesService.validateCategoryName(data.name)
+    const validation = categoriesService.validateCategoryName(data.name ?? '')
     if (!validation.valid && validation.error) {
       errors.name = validation.error
     }
 
     // Check for duplicate names (excluding current category)
+    const nameLower = (data.name ?? '').toLowerCase()
     if (
+      nameLower &&
       existingCategories.some(
         (cat) =>
-          cat.toLowerCase() === data.name.toLowerCase() &&
-          cat.toLowerCase() !== category.name.toLowerCase()
+          cat.toLowerCase() === nameLower && cat.toLowerCase() !== category.name.toLowerCase()
       )
     ) {
       errors.name = 'A category with this name already exists'

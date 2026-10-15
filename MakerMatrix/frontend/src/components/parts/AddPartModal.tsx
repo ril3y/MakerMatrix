@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { useState, useEffect } from 'react'
 import { Save, Package, Plus, X, ChevronDown } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
@@ -699,7 +698,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
                 name: formattedName,
                 url,
                 supportsScraping: scrapingInfo.supports_scraping,
-                scrapingWarning: scrapingInfo.warning,
+                scrapingWarning: scrapingInfo.warning ?? undefined,
               })
               setShowConfigureSupplierPrompt(true)
               return // Wait for user to choose configuration or simple supplier
@@ -829,7 +828,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               name: formattedName,
               url,
               supportsScraping: scrapingInfo.supports_scraping,
-              scrapingWarning: scrapingInfo.warning,
+              scrapingWarning: scrapingInfo.warning ?? undefined,
             })
             setShowConfigureSupplierPrompt(true)
             return // Wait for user to choose configuration or simple supplier
@@ -1254,7 +1253,7 @@ const AddPartModal = ({ isOpen, onClose, onSuccess }: AddPartModalProps) => {
               description="Select or enter supplier"
             >
               <SupplierSelector
-                value={formData.supplier}
+                value={formData.supplier ?? ''}
                 onChange={(value) => setFormData({ ...formData, supplier: value })}
                 error={errors.supplier}
                 placeholder="Select supplier..."

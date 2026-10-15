@@ -1,9 +1,8 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import ThemeSelector from '../ThemeSelector'
-import { useTheme } from '@/contexts/ThemeContext'
+import { useTheme, type ThemeContextType } from '@/contexts/ThemeContext'
 
 // Mock the theme context
 vi.mock('@/contexts/ThemeContext')
@@ -236,7 +235,7 @@ describe('ThemeSelector', () => {
 
   describe('Error Handling', () => {
     it('handles missing theme context gracefully', () => {
-      mockUseTheme.mockReturnValue(null)
+      mockUseTheme.mockReturnValue(null as unknown as ThemeContextType)
 
       expect(() => render(<ThemeSelector />)).not.toThrow()
     })

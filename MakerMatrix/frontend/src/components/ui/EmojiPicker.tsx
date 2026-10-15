@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, X, Search } from 'lucide-react'
 
@@ -279,7 +278,7 @@ const EmojiPicker = ({ value, onChange, placeholder = 'Select emoji...' }: Emoji
                     type="button"
                     onClick={() => handleEmojiSelect(emoji)}
                     className="p-3 text-2xl hover:bg-theme-secondary rounded-lg transition-colors border border-transparent hover:border-theme-primary focus:outline-none focus:ring-2 focus:ring-primary"
-                    title={`Select ${emoji} - ${EMOJI_KEYWORDS[emoji]?.join(', ') || 'emoji'}`}
+                    title={`Select ${emoji} - ${(EMOJI_KEYWORDS as Record<string, string[]>)[emoji]?.join(', ') || 'emoji'}`}
                   >
                     {emoji}
                   </button>

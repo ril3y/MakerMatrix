@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { http, HttpResponse } from 'msw'
 import {
   createMockPart,
@@ -58,8 +57,8 @@ export const handlers = [
   }),
 
   http.post(`${API_BASE}/api/parts/add_part`, async ({ request }) => {
-    const body = await request.json()
-    const newPart = createMockPart(body)
+    const body = (await request.json()) as Record<string, unknown> | null
+    const newPart = createMockPart(body ?? {})
 
     return HttpResponse.json({
       status: 'success',
@@ -130,8 +129,8 @@ export const handlers = [
   }),
 
   http.post(`${API_BASE}/api/categories/add_category`, async ({ request }) => {
-    const body = await request.json()
-    const newCategory = createMockCategory(body)
+    const body = (await request.json()) as Record<string, unknown> | null
+    const newCategory = createMockCategory(body ?? {})
 
     return HttpResponse.json({
       status: 'success',
@@ -156,8 +155,8 @@ export const handlers = [
   }),
 
   http.post(`${API_BASE}/api/locations/add_location`, async ({ request }) => {
-    const body = await request.json()
-    const newLocation = createMockLocation(body)
+    const body = (await request.json()) as Record<string, unknown> | null
+    const newLocation = createMockLocation(body ?? {})
 
     return HttpResponse.json({
       status: 'success',
@@ -182,8 +181,8 @@ export const handlers = [
   }),
 
   http.post(`${API_BASE}/api/suppliers/config/suppliers`, async ({ request }) => {
-    const body = await request.json()
-    const newSupplier = createMockSupplier(body)
+    const body = (await request.json()) as Record<string, unknown> | null
+    const newSupplier = createMockSupplier(body ?? {})
 
     return HttpResponse.json({
       status: 'success',
@@ -243,8 +242,8 @@ export const handlers = [
   }),
 
   http.post(`${API_BASE}/api/tasks/`, async ({ request }) => {
-    const body = await request.json()
-    const newTask = createMockTask(body)
+    const body = (await request.json()) as Record<string, unknown> | null
+    const newTask = createMockTask(body ?? {})
 
     return HttpResponse.json({
       status: 'success',

@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { motion } from 'framer-motion'
 import { useState, useEffect, useCallback } from 'react'
 import { X, TestTube } from 'lucide-react'
@@ -240,9 +239,10 @@ const DynamicPrinterModal = ({
         // Apply recommendations if any (only for setup tests)
         const resultDetails = result.details as { recommendations?: { scaling_factor?: number } }
         if (mode === 'add' && resultDetails?.recommendations) {
+          const { recommendations } = resultDetails
           setPrinterData((prev) => ({
             ...prev,
-            scaling_factor: resultDetails.recommendations.scaling_factor || prev.scaling_factor,
+            scaling_factor: recommendations.scaling_factor || prev.scaling_factor,
           }))
         }
       } else {
@@ -343,11 +343,11 @@ const DynamicPrinterModal = ({
       }
 
       // Merge custom fields into main printer data for submission
+      const { custom_fields: _customFields, ...restPrinterData } = finalPrinterData
       const submissionData = {
-        ...finalPrinterData,
+        ...restPrinterData,
         ...finalPrinterData.custom_fields,
       }
-      delete submissionData.custom_fields
 
       if (mode === 'edit' && existingPrinter) {
         await settingsService.updatePrinter(existingPrinter.printer_id, submissionData)
