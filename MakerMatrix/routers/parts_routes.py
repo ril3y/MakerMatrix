@@ -262,9 +262,15 @@ async def update_part(
             if not location_id:
                 return "No Location"
             try:
-                location_response = location_service.get_location_by_id(location_id)
-                if location_response and location_response.get("data"):
-                    return location_response["data"].get("name", location_id)
+                # NOTE: the LocationService method is get_location_details(id),
+                # returning ServiceResponse[Dict[str, Any]]. The previous code
+                # called a non-existent method and treated the response like
+                # a dict — the bare except swallowed the AttributeError, so
+                # users silently saw raw UUIDs in activity logs instead of
+                # human-readable location names.
+                location_response = location_service.get_location_details(location_id)
+                if location_response and location_response.success and location_response.data:
+                    return location_response.data.get("name", location_id)
                 return location_id
             except Exception:
                 logger.exception(f"Failed to resolve location name for id {location_id}")
@@ -435,14 +441,22 @@ async def _handle_enrichment(
                 related_entity_id=part_id,
             )
 
-            enrichment_task = await task_service.create_task(task_request, user_id=current_user.id)
-            enrichment_message = f" Enrichment task created (ID: {enrichment_task.id})."
+            # task_service.create_task returns ServiceResponse[Dict[str, Any]],
+            # not a TaskModel. The previous .id access raised AttributeError —
+            # the surrounding broad except hid this on the QR-scan enrichment path.
+            enrichment_response = await task_service.create_task(task_request, user_id=current_user.id)
+            if not enrichment_response.success or not enrichment_response.data:
+                return f" Warning: Enrichment task creation failed - {enrichment_response.message}"
+            enrichment_task_id = enrichment_response.data.get("id")
+            if not enrichment_task_id:
+                return f" Warning: Enrichment task created but ID missing from response."
+            enrichment_message = f" Enrichment task created (ID: {enrichment_task_id})."
 
             # Wait for enrichment to complete and return enriched part
             # Note: This is a simplified approach - in production you might want to use WebSocket or polling
             import asyncio
 
-            enriched_part = await _wait_for_enrichment_completion(part_id, enrichment_task.id, timeout=30)
+            enriched_part = await _wait_for_enrichment_completion(part_id, enrichment_task_id, timeout=30)
             if enriched_part:
                 created_part.update(enriched_part)
                 return f" Part successfully enriched from {enrichment_supplier}."
