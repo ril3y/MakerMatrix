@@ -160,7 +160,7 @@ class PrinterPersistenceService:
 
     async def remove_printer_with_persistence(self, printer_id: str) -> Dict[str, Any]:
         """Remove a printer from both memory and database."""
-        result = {"success": False, "memory_removed": False, "database_removed": False}
+        result: Dict[str, Any] = {"success": False, "memory_removed": False, "database_removed": False}
 
         try:
             # Remove from memory first

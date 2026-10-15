@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy import ForeignKey, String, Numeric
@@ -6,6 +6,9 @@ from datetime import datetime
 import uuid
 from pydantic import ConfigDict, field_serializer
 from decimal import Decimal
+
+if TYPE_CHECKING:
+    from .part_models import PartModel
 
 
 class OrderModel(SQLModel, table=True):

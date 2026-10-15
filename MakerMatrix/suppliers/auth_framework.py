@@ -11,7 +11,7 @@ Provides standardized authentication patterns across all supplier implementation
 
 import asyncio
 import logging
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from abc import ABC, abstractmethod

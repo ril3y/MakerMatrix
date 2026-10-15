@@ -370,11 +370,11 @@ export const useOrderImport = ({
 
       toast.success(`Imported ${result.imported_count || 0} parts successfully`)
 
-      if (result.failed_count > 0) {
+      if ((result.failed_count ?? 0) > 0) {
         toast.error(`${result.failed_count} parts failed to import`)
       }
 
-      if (result.skipped_count > 0) {
+      if ((result.skipped_count ?? 0) > 0) {
         toast(`${result.skipped_count} parts were skipped (already exist)`)
       }
 

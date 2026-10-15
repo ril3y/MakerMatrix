@@ -2,6 +2,7 @@
 """
 Script to find and test Brother QL printer on the network.
 """
+
 import asyncio
 import socket
 import sys

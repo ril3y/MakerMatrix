@@ -315,7 +315,7 @@ def create_toast_message(
 ) -> WebSocketMessage:
     """Create a toast message"""
     # Build ToastData kwargs, excluding None values to use defaults
-    toast_kwargs = {"level": level, "message": message, "position": position}
+    toast_kwargs: Dict[str, Any] = {"level": level, "message": message, "position": position}
     if duration is not None:
         toast_kwargs["duration"] = duration
 

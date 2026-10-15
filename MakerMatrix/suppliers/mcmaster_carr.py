@@ -44,7 +44,7 @@ class McMasterCarrSupplier(BaseSupplier):
 
     Supports:
     1. Official API (requires approved account and certificates)
-    
+
     Web scraping is NOT supported due to anti-bot measures.
     For API access, contact eCommerce@mcmaster.com for approval.
     """
@@ -234,15 +234,13 @@ class McMasterCarrSupplier(BaseSupplier):
                     raise SupplierConfigurationError(f"Failed to read certificate file: {str(e)}")
 
                 password_bytes = cert_password.encode() if cert_password else None
-                
+
                 try:
                     private_key, certificate, additional_certificates = pkcs12.load_key_and_certificates(
                         pfx_data, password_bytes
                     )
                 except Exception as pfx_error:
-                    raise SupplierConfigurationError(
-                        f"Failed to load PFX file (check password): {str(pfx_error)}"
-                    )
+                    raise SupplierConfigurationError(f"Failed to load PFX file (check password): {str(pfx_error)}")
 
                 if not private_key or not certificate:
                     raise SupplierConfigurationError("PFX file must contain both private key and certificate")
@@ -253,7 +251,7 @@ class McMasterCarrSupplier(BaseSupplier):
                     # No, on Windows we can't delete while open. We track them in self._temp_files.
                     key_fd, key_path = tempfile.mkstemp(suffix=".pem")
                     cert_fd, cert_path_pem = tempfile.mkstemp(suffix=".pem")
-                    
+
                     # Close handlers immediately
                     os.close(key_fd)
                     os.close(cert_fd)
@@ -267,7 +265,7 @@ class McMasterCarrSupplier(BaseSupplier):
                                 encryption_algorithm=NoEncryption(),
                             )
                         )
-                    
+
                     with open(cert_path_pem, "wb") as f:
                         f.write(certificate.public_bytes(Encoding.PEM))
                         if additional_certificates:
@@ -278,7 +276,7 @@ class McMasterCarrSupplier(BaseSupplier):
 
                 # Track for cleanup
                 self._temp_files.extend([key_path, cert_path_pem])
-                
+
                 # Load into SSL context
                 try:
                     context.load_cert_chain(certfile=cert_path_pem, keyfile=key_path)
@@ -364,9 +362,11 @@ class McMasterCarrSupplier(BaseSupplier):
                             except (ValueError, TypeError):
                                 # Default to 23 hours from now if can't parse
                                 from datetime import timedelta
+
                                 self._token_expires_at = datetime.now() + timedelta(hours=23)
                         else:
                             from datetime import timedelta
+
                             self._token_expires_at = datetime.now() + timedelta(hours=23)
 
                         logger.info("✅ Successfully authenticated with McMaster-Carr API")
@@ -379,7 +379,12 @@ class McMasterCarrSupplier(BaseSupplier):
             raise SupplierConnectionError(f"Network error during login: {str(e)}")
 
     async def _make_api_request(
-        self, endpoint: str, credentials: Dict[str, str] = None, params: Optional[Dict] = None, method: str = "GET", json_body: Dict = None
+        self,
+        endpoint: str,
+        credentials: Dict[str, str] = None,
+        params: Optional[Dict] = None,
+        method: str = "GET",
+        json_body: Dict = None,
     ) -> Dict[str, Any]:
         """Make API request to McMaster-Carr using certificate + bearer token authentication"""
 
@@ -452,7 +457,9 @@ class McMasterCarrSupplier(BaseSupplier):
 
         else:
             error_text = await response.text()
-            raise SupplierConnectionError(f"API request to {endpoint} failed with status {response.status}: {error_text}")
+            raise SupplierConnectionError(
+                f"API request to {endpoint} failed with status {response.status}: {error_text}"
+            )
 
     async def authenticate(self) -> bool:
         """Validate certificate credentials are configured for McMaster-Carr API"""
@@ -569,7 +576,9 @@ class McMasterCarrSupplier(BaseSupplier):
             logger.error(f"❌ Search failed for query '{query}': {str(e)}")
             return []
 
-    async def _subscribe_to_product(self, part_number: str, credentials: Dict[str, str] = None) -> Optional[Dict[str, Any]]:
+    async def _subscribe_to_product(
+        self, part_number: str, credentials: Dict[str, str] = None
+    ) -> Optional[Dict[str, Any]]:
         """Subscribe to a product to enable access to its data.
 
         Per McMaster API docs, the request body format is:
@@ -581,12 +590,7 @@ class McMasterCarrSupplier(BaseSupplier):
             creds = credentials or self._credentials or {}
             # PUT /v1/products with URL format per Postman collection
             product_url = f"https://mcmaster.com/{part_number}"
-            response = await self._make_api_request(
-                "products",
-                creds,
-                method="PUT",
-                json_body={"URL": product_url}
-            )
+            response = await self._make_api_request("products", creds, method="PUT", json_body={"URL": product_url})
             logger.info(f"✅ Subscribed to product: {part_number}")
             return response
         except Exception as e:
@@ -612,9 +616,7 @@ class McMasterCarrSupplier(BaseSupplier):
                 if result:
                     # Download authenticated image if it's an API URL
                     if result.image_url and "api.mcmaster.com" in result.image_url:
-                        local_url = await self._download_authenticated_image(
-                            result.image_url, supplier_part_number
-                        )
+                        local_url = await self._download_authenticated_image(result.image_url, supplier_part_number)
                         if local_url:
                             result.image_url = local_url
                     logger.info(f"✅ Retrieved details for part from subscribe response: {supplier_part_number}")
@@ -628,9 +630,7 @@ class McMasterCarrSupplier(BaseSupplier):
             if result:
                 # Download authenticated image if it's an API URL
                 if result.image_url and "api.mcmaster.com" in result.image_url:
-                    local_url = await self._download_authenticated_image(
-                        result.image_url, supplier_part_number
-                    )
+                    local_url = await self._download_authenticated_image(result.image_url, supplier_part_number)
                     if local_url:
                         result.image_url = local_url
                 logger.info(f"✅ Retrieved details for part: {supplier_part_number}")
@@ -721,7 +721,11 @@ class McMasterCarrSupplier(BaseSupplier):
                 unit_quantity = pricing_data.get("unitQuantity", 1)
                 currency = pricing_data.get("currency", "USD")
                 if price_value:
-                    price_text = f"{currency} {price_value} per {unit_quantity}" if unit_quantity > 1 else f"{currency} {price_value} each"
+                    price_text = (
+                        f"{currency} {price_value} per {unit_quantity}"
+                        if unit_quantity > 1
+                        else f"{currency} {price_value} each"
+                    )
 
             return PartSearchResult(
                 supplier_part_number=part_number,
@@ -794,6 +798,7 @@ class McMasterCarrSupplier(BaseSupplier):
 
                     # Generate UUID and save
                     import uuid as uuid_mod
+
                     image_uuid = str(uuid_mod.uuid5(uuid_mod.NAMESPACE_URL, image_api_url))
                     file_service = FileDownloadService()
                     filename = f"{image_uuid}{ext}"
@@ -943,7 +948,7 @@ class McMasterCarrSupplier(BaseSupplier):
     async def close(self):
         """Clean up resources including temp files"""
         await super().close()
-        
+
         # Clean up temp files
         for path in self._temp_files:
             try:

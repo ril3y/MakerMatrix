@@ -65,7 +65,6 @@ describe('AddPartModal - Core Functionality', () => {
         name: 'Shelf A',
         description: 'Top shelf',
         location_type: 'shelf',
-        parent_id: null,
       },
     ])
     mockCategoriesService.getAllCategories.mockResolvedValue([
