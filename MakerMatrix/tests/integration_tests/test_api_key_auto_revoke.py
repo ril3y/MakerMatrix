@@ -3,6 +3,7 @@ Test API key auto-revoke on role downgrade
 Verifies that API keys are automatically revoked when user permissions are downgraded
 """
 
+import os
 import pytest
 from fastapi.testclient import TestClient
 from MakerMatrix.main import app

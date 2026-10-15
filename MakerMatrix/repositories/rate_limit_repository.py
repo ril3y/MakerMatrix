@@ -184,7 +184,7 @@ class RateLimitRepository(BaseRepository[SupplierRateLimitModel]):
         avg_response_time = sum(response_times) / len(response_times) if response_times else None
 
         # Group by endpoint type
-        endpoint_counts = {}
+        endpoint_counts: dict[str, int] = {}
         for record in usage_records:
             endpoint_type = record.endpoint_type or "general"
             endpoint_counts[endpoint_type] = endpoint_counts.get(endpoint_type, 0) + 1

@@ -5,8 +5,8 @@ Focused, lightweight service for dashboard data only.
 """
 
 import logging
-from typing import Dict, Any, List
-from sqlalchemy import func, select
+from typing import Dict, Any, List, Tuple
+from sqlalchemy import Select, func, select
 from sqlmodel import Session
 
 from MakerMatrix.services.base_service import BaseService
@@ -108,7 +108,7 @@ class DashboardService(BaseService):
     def get_parts_by_location(self) -> List[Dict[str, Any]]:
         """Get parts distribution by location."""
         with self.get_session() as session:
-            stmt = (
+            stmt: Select[Tuple[str, int, int]] = (
                 select(
                     LocationModel.name.label("location"),
                     func.count(func.distinct(PartLocationAllocation.part_id)).label("part_count"),

@@ -193,6 +193,8 @@ MakerMatrix.db*
 # Exception: Allow documentation screenshots
 !docs/screenshots/*.png
 !docs/screenshots/*.jpg
+# Exception: Playwright visual-regression baselines
+!MakerMatrix/frontend/tests/visual/*-snapshots/*.png
 !docs/screenshots/*.jpeg
 
 # Backup files

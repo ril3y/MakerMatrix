@@ -16,7 +16,6 @@ from MakerMatrix.models.models import engine
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.routers.base import BaseRouter, standard_error_handling
 
-
 router = APIRouter(tags=["Label Preview"])
 base_router = BaseRouter()
 

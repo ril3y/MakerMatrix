@@ -255,9 +255,9 @@ const EditPartPage: React.FC = () => {
       })
 
       const updateData: CreatePartRequest = {
+        ...data,
         name: data.name,
         quantity: data.quantity,
-        ...data,
         image_url: currentImageUrl,
         categories: categoryNames,
         additional_properties: additionalProperties,

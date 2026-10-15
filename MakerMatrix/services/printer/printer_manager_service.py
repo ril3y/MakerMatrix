@@ -1079,7 +1079,7 @@ class PrinterManagerService:
         total_printers = len(self.printers)
         total_jobs = len(self.print_jobs)
 
-        job_statuses = {}
+        job_statuses: Dict[Any, int] = {}
         for job in self.print_jobs.values():
             job_statuses[job.status] = job_statuses.get(job.status, 0) + 1
 

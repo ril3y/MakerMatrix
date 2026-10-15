@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from http.client import HTTPException
 from typing import List, Optional, Any, Dict, TYPE_CHECKING
 
@@ -549,7 +550,7 @@ class PartService(BaseService):
                 }
 
                 # Create part data dict with only valid fields
-                filtered_part_data = {}
+                filtered_part_data: Dict[str, Any] = {}
                 for key, value in part_data.items():
                     if key in valid_part_fields:
                         # Convert empty strings to None for optional fields (removed location_id - no longer a part field)

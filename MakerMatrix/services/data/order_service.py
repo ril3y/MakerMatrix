@@ -9,7 +9,7 @@ from MakerMatrix.models.order_models import (
     CreateOrderItemRequest,
     UpdateOrderRequest,
 )
-from MakerMatrix.repositories.custom_exceptions import ResourceNotFoundError
+from MakerMatrix.exceptions import ResourceNotFoundError
 from MakerMatrix.repositories.order_repository import OrderRepository, OrderItemRepository
 from MakerMatrix.services.base_service import BaseService, ServiceResponse
 from sqlalchemy import func

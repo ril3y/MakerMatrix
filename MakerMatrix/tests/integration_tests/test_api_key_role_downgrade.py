@@ -3,6 +3,7 @@ Test API key security when user roles change
 Verifies that API keys respect current user permissions, not permissions at creation time
 """
 
+import os
 import pytest
 from fastapi.testclient import TestClient
 from MakerMatrix.main import app

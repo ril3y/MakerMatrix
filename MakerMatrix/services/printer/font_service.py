@@ -10,7 +10,6 @@ from pathlib import Path
 from dataclasses import dataclass
 import os
 
-
 # Get bundled fonts directory
 FONTS_DIR = Path(__file__).parent.parent.parent / "fonts"
 
@@ -38,7 +37,7 @@ class FontService:
     @staticmethod
     def list_bundled_fonts() -> List[FontInfo]:
         """List all bundled fonts in the repo."""
-        fonts = []
+        fonts: List[FontInfo] = []
 
         if not FONTS_DIR.exists():
             return fonts

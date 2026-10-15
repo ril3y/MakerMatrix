@@ -20,10 +20,10 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/e2e",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:visual": "playwright test tests/visual",
+    "test:visual": "playwright test tests/visual --project=chromium",
     "test:crud": "vitest run src/__tests__/api/crud.test.ts",
     "test:integration": "vitest run src/__tests__/integration/crud-flow.test.tsx",
     "test:unit": "npm run test:crud && npm run test:integration",
@@ -89,5 +89,15 @@
     "typescript": "^5.2.2",
     "vite": "^4.5.0",
     "vitest": "^1.0.0"
-  }
+  },
+  "bundlesize": [
+    {
+      "path": "./dist/assets/*.js",
+      "maxSize": "900 kB"
+    },
+    {
+      "path": "./dist/assets/*.css",
+      "maxSize": "20 kB"
+    }
+  ]
 }

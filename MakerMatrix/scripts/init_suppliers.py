@@ -19,7 +19,6 @@ from MakerMatrix.services.system.supplier_config_service import SupplierConfigSe
 from MakerMatrix.models.supplier_config_models import SupplierConfigModel
 from MakerMatrix.services.utility.favicon_fetcher import FaviconFetcherService
 
-
 # Built-in advanced suppliers with hardcoded icons
 BUILTIN_ICON_MAP = {
     "LCSC": "/api/utility/get_image/lcsc.ico",

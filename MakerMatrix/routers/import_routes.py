@@ -220,9 +220,10 @@ async def import_file(
                 )
                 order_response = await order_service.create_order(order_request)
                 if order_response.success:
-                    order_dict = order_response.data
-                    # Order service returns order dict in ServiceResponse.data (from order.to_dict())
-                    order_id = order_dict["id"]  # Access 'id' key from dict
+                    # OrderService.create_order returns ServiceResponse[OrderModel],
+                    # so access fields via attribute, not dict indexing.
+                    created_order = order_response.data
+                    order_id = created_order.id if created_order is not None else None
                     logger.info(f"Created order with ID: {order_id}")
                 else:
                     logger.warning(f"Failed to create order: {order_response.message}")

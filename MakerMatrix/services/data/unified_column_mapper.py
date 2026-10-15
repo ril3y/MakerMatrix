@@ -128,7 +128,7 @@ class UnifiedColumnMapper:
         Returns:
             Dict with extracted data using standard field names
         """
-        extracted_data = {}
+        extracted_data: dict[str, Any] = {}
 
         for field, column_name in mapped_columns.items():
             if column_name in row.index:

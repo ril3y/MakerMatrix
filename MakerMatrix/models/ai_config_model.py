@@ -1,7 +1,6 @@
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 
-
 DEFAULT_SYSTEM_PROMPT = """You are MakerMatrix AI, a helpful assistant for a parts inventory management system.
 
 Your primary role is to help users manage their electronic components, hardware parts, and materials. You have direct access to the inventory database and can provide real-time information about:

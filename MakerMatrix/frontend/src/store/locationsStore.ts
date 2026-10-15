@@ -141,7 +141,11 @@ export const useLocationsStore = create<LocationsState>()(
     },
 
     getLocationsByParent: (parentId) => {
-      return get().locations.filter((location) => location.parent_id === parentId)
+      // Normalize: treat null and undefined as equivalent for "root locations"
+      const normalizedParentId = parentId ?? undefined
+      return get().locations.filter(
+        (location) => (location.parent_id ?? undefined) === normalizedParentId
+      )
     },
 
     buildLocationTree: () => {
