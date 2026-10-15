@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, Optional, List
-from sqlalchemy import delete
+from sqlalchemy import delete, func
 from sqlmodel import Session, select
 
 from MakerMatrix.database.db import get_session

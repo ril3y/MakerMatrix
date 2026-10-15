@@ -40,7 +40,6 @@ from MakerMatrix.main import app
 from MakerMatrix.services.base_service import ServiceResponse
 from MakerMatrix.startup import StartupStep, run_startup_steps
 
-
 # ---------------------------------------------------------------------------
 # Item 1 — Depends(get_*_service) is honored by the route
 # ---------------------------------------------------------------------------
@@ -57,9 +56,7 @@ def test_get_part_service_override_is_used():
     satisfied — those overrides are orthogonal to the wiring we're proving.
     """
     mock_service = MagicMock()
-    mock_service.get_part_counts.return_value = ServiceResponse.success_response(
-        message="ok", data={"total_parts": 7}
-    )
+    mock_service.get_part_counts.return_value = ServiceResponse.success_response(message="ok", data={"total_parts": 7})
     app.dependency_overrides[get_part_service] = lambda: mock_service
     try:
         provider = app.dependency_overrides[get_part_service]
@@ -128,9 +125,9 @@ def test_all_new_dependency_providers_are_callable():
     for provider, expected_type in checks:
         gen = provider()
         instance = next(gen)
-        assert isinstance(instance, expected_type), (
-            f"{provider.__name__} should yield {expected_type.__name__}, got {type(instance).__name__}"
-        )
+        assert isinstance(
+            instance, expected_type
+        ), f"{provider.__name__} should yield {expected_type.__name__}, got {type(instance).__name__}"
         # Drain generator
         for _ in gen:
             pass
@@ -183,6 +180,24 @@ def test_category_repository_get_count_exists():
     assert callable(CategoryRepository.get_category_count)
 
 
+def test_category_repository_get_count_runs_against_db():
+    """get_category_count must actually execute (it previously used an
+    unimported `func` and raised NameError on first call)."""
+    from sqlmodel import Session, SQLModel, create_engine
+
+    from MakerMatrix.models.models import CategoryModel
+    from MakerMatrix.repositories.category_repositories import CategoryRepository
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        assert CategoryRepository.get_category_count(session) == 0
+        session.add(CategoryModel(name="Resistors"))
+        session.add(CategoryModel(name="Capacitors"))
+        session.commit()
+        assert CategoryRepository.get_category_count(session) == 2
+
+
 def test_location_repository_get_count_exists():
     from MakerMatrix.repositories.location_repositories import LocationRepository
 
@@ -197,15 +212,15 @@ def test_location_repository_get_count_exists():
 @pytest.mark.parametrize(
     "bad_key",
     [
-        "../foo",          # path traversal
-        "x') OR 1=1",       # SQL-style escape
-        "key with space",   # whitespace
-        "$other",           # JSON-path escape
-        ".dotted.key",      # extra dots
-        "a" * 65,           # over 64 chars (size DoS)
-        "key;DROP",         # statement terminator
-        "key`backtick",     # backtick escape
-        "key\"quote",       # double-quote
+        "../foo",  # path traversal
+        "x') OR 1=1",  # SQL-style escape
+        "key with space",  # whitespace
+        "$other",  # JSON-path escape
+        ".dotted.key",  # extra dots
+        "a" * 65,  # over 64 chars (size DoS)
+        "key;DROP",  # statement terminator
+        "key`backtick",  # backtick escape
+        'key"quote',  # double-quote
     ],
 )
 def test_search_parts_text_rejects_malicious_prop_key(bad_key, memory_test_session):
@@ -349,6 +364,7 @@ async def test_optional_failure_logs_and_continues(caplog):
         StartupStep("third", after, required=True),
     ]
     import logging as _l
+
     with caplog.at_level(_l.ERROR, logger="MakerMatrix.startup.steps"):
         completed = await run_startup_steps(steps)
     assert order == ["ok", "boom", "after"]
@@ -364,6 +380,7 @@ async def test_run_preserves_order():
     async def make(name):
         async def _run():
             seen.append(name)
+
         return _run
 
     steps = [
@@ -660,9 +677,7 @@ def test_lifespan_body_has_no_print_calls():
     print_call_lines = [
         inner.lineno
         for inner in ast.walk(func)
-        if isinstance(inner, ast.Call)
-        and isinstance(inner.func, ast.Name)
-        and inner.func.id == "print"
+        if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Name) and inner.func.id == "print"
     ]
     assert not print_call_lines, (
         f"lifespan() must not contain `print(...)` calls. Use the module logger. "
