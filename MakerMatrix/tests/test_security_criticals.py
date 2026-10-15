@@ -51,7 +51,6 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_test_db_path}"
 from MakerMatrix.main import app  # noqa: E402
 from MakerMatrix.services.system.auth_service import AuthService  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -475,9 +474,7 @@ class TestDevManagerBinding:
         # The class is named EnhancedServerManager in this repo.
         src = inspect.getsource(dm.EnhancedServerManager.__init__)
         assert "127.0.0.1" in src, "api_host default must be loopback"
-        assert 'self.api_host = "0.0.0.0"' not in src, (
-            "dev manager must not unconditionally bind to all interfaces"
-        )
+        assert 'self.api_host = "0.0.0.0"' not in src, "dev manager must not unconditionally bind to all interfaces"
 
         # Stronger check: actually construct the manager (no server is started
         # until run() is called) and assert the attribute on the instance.
@@ -485,9 +482,7 @@ class TestDevManagerBinding:
             instance = dm.EnhancedServerManager()
         except Exception as exc:  # pragma: no cover - env-dependent
             pytest.skip(f"EnhancedServerManager construction failed in this env: {exc}")
-        assert instance.api_host == "127.0.0.1", (
-            f"expected api_host=='127.0.0.1', got {instance.api_host!r}"
-        )
+        assert instance.api_host == "127.0.0.1", f"expected api_host=='127.0.0.1', got {instance.api_host!r}"
 
     def test_api_host_honors_env_override(self, monkeypatch):
         """Setting DEV_MANAGER_API_HOST overrides the loopback default."""

@@ -47,6 +47,7 @@ def _safe_resolve_within(base_dir: Path, name: str) -> Path:
         raise HTTPException(status_code=400, detail="Invalid filename")
     return candidate
 
+
 from MakerMatrix.services.data.category_service import CategoryService
 from MakerMatrix.services.data.location_service import LocationService
 from MakerMatrix.services.data.part_service import PartService
