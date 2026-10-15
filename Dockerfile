@@ -7,7 +7,7 @@ ARG BUILD_DATE
 ARG VCS_REF
 
 # Stage 1: Frontend Build
-FROM node:18-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 
 WORKDIR /frontend
 
