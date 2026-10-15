@@ -2,7 +2,7 @@
 API routes for activity logging and retrieval.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
@@ -77,7 +77,7 @@ async def get_activity_stats(
     activities = activity_service.get_recent_activities(limit=1000, hours=hours)  # Get more for stats
 
     # Calculate stats
-    stats = {
+    stats: Dict[str, Any] = {
         "total_activities": len(activities),
         "by_action": {},
         "by_entity_type": {},
@@ -85,15 +85,17 @@ async def get_activity_stats(
         "most_active_hour": None,
     }
 
-    # Count by action type
+    # Count by action type. ActivityService.get_recent_activities returns
+    # List[Dict[str, Any]] (it serializes the SQLModel instances to dicts
+    # inside the session context to avoid detached-instance errors).
     for activity in activities:
-        action = activity.action
+        action = activity["action"]
         stats["by_action"][action] = stats["by_action"].get(action, 0) + 1
 
-        entity_type = activity.entity_type
+        entity_type = activity["entity_type"]
         stats["by_entity_type"][entity_type] = stats["by_entity_type"].get(entity_type, 0) + 1
 
-        username = activity.username or "system"
+        username = activity.get("username") or "system"
         stats["by_user"][username] = stats["by_user"].get(username, 0) + 1
 
     return base_router.build_success_response(data=stats, message="Activity statistics retrieved successfully")

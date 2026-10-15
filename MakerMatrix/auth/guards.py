@@ -93,24 +93,27 @@ def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permis
         if path in permissions:
             permission = permissions[path]
 
-            # Handle method-specific permissions
+            # Handle method-specific permissions.
+            # We deal exclusively with APIRoute instances at runtime (which expose
+            # `methods` and `dependencies`), but iterating `router.routes` types
+            # as BaseRoute. Suppress the false-positive attr-defined locally.
             if isinstance(permission, dict) and hasattr(route, "methods"):
                 # Get the HTTP method for this route
-                methods = route.methods if hasattr(route, "methods") else []
+                methods = route.methods if hasattr(route, "methods") else []  # type: ignore[attr-defined]
                 method = list(methods)[0] if methods else None
 
                 if method in permission:
                     # Add method-specific permission dependency
-                    route.dependencies.append(Depends(require_permission(permission[method])))
+                    route.dependencies.append(Depends(require_permission(permission[method])))  # type: ignore[attr-defined]
                 else:
                     # Add general authentication dependency if method not specified
-                    route.dependencies.append(Depends(get_current_user))
+                    route.dependencies.append(Depends(get_current_user))  # type: ignore[attr-defined]
             else:
                 # Add permission-specific dependency
-                route.dependencies.append(Depends(require_permission(permission)))
+                route.dependencies.append(Depends(require_permission(permission)))  # type: ignore[attr-defined]
         else:
             # Add general authentication dependency
-            route.dependencies.append(Depends(get_current_user))
+            route.dependencies.append(Depends(get_current_user))  # type: ignore[attr-defined]
 
         router.routes.append(route)
 

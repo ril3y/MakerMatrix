@@ -194,7 +194,7 @@ class BaseService(ABC):
 
         if missing_fields:
             raise ValidationError(
-                f"Missing required fields: {', '.join(missing_fields)}", {"missing_fields": missing_fields}
+                f"Missing required fields: {', '.join(missing_fields)}", missing_fields=missing_fields
             )
 
     def log_operation(self, operation: str, entity_type: str, entity_id: str = None):
