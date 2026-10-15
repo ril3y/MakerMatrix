@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import React, { useState, useCallback } from 'react'
 import type {
   UseFormProps,
@@ -82,7 +81,7 @@ export const useFormWithValidation = <T extends FieldValues>({
 
         // Handle validation errors from server
         if (err.response?.status === 422) {
-          const validationErrors = err.response.data.detail
+          const validationErrors = err.response.data?.detail
           if (Array.isArray(validationErrors)) {
             validationErrors.forEach((validationError: unknown) => {
               const ve = validationError as { loc?: unknown[]; msg?: string }
@@ -171,6 +170,9 @@ export const useFormWithValidation = <T extends FieldValues>({
     (name?: Path<T> | Path<T>[]) => {
       if (Array.isArray(name)) {
         return form.watch(name as readonly Path<T>[])
+      }
+      if (name === undefined) {
+        return form.watch()
       }
       return form.watch(name)
     },

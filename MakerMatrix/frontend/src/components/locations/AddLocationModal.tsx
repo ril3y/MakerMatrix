@@ -1,5 +1,5 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { useState, useEffect, useCallback } from 'react'
+import type { z } from 'zod'
 import CrudModal from '@/components/ui/CrudModal'
 import { FormInput, FormField, LocationTreeSelector } from '@/components/forms'
 import { CustomSelect } from '@/components/ui/CustomSelect'
@@ -57,7 +57,7 @@ const AddLocationModal = ({
 
   // Form with validation
   const form = useModalFormWithValidation<LocationFormData>({
-    schema: locationFormSchema,
+    schema: locationFormSchema as unknown as z.ZodType<LocationFormData>,
     isOpen,
     onClose,
     defaultValues: {

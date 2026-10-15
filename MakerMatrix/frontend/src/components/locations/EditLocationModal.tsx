@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: remove and fix; tracked in TS_STRICT_DEFERRED.md
 import { useState, useEffect, useCallback } from 'react'
 import { MapPin, AlertCircle } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
@@ -134,7 +133,7 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const isValid = await validateName(formData.name)
+    const isValid = await validateName(formData.name ?? '')
     if (!isValid) return
 
     setLoading(true)
@@ -147,12 +146,12 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
 
       // Only include image_url if it was changed
       if (imageChanged) {
-        updateData.image_url = imageUrl || null
+        updateData.image_url = imageUrl || undefined
       }
 
       // Only include emoji if it was changed
       if (emojiChanged) {
-        updateData.emoji = selectedEmoji || null
+        updateData.emoji = selectedEmoji || undefined
       }
 
       console.log('[DEBUG] emojiChanged:', emojiChanged)
@@ -213,12 +212,12 @@ const EditLocationModal: React.FC<EditLocationModalProps> = ({
           </div>
         )}
 
-        <FormField label="Location Name" required error={nameError}>
+        <FormField label="Location Name" required error={nameError ?? undefined}>
           <input
             type="text"
-            value={formData.name}
+            value={formData.name ?? ''}
             onChange={(e) => handleNameChange(e.target.value)}
-            onBlur={() => validateName(formData.name)}
+            onBlur={() => validateName(formData.name ?? '')}
             className="input w-full"
             placeholder="e.g., Warehouse A, Shelf 1"
             autoFocus
