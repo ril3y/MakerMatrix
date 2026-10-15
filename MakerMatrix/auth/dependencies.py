@@ -26,7 +26,7 @@ async def get_current_user_optional(request: Request) -> Optional[UserModel]:
 
         token = authorization[7:]  # Remove "Bearer " prefix
         return auth_service.get_current_user(token)
-    except:
+    except Exception:
         return None
 
 
