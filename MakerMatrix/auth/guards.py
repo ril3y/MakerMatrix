@@ -103,11 +103,19 @@ def secure_all_routes(router: APIRouter, exclude_paths: List[str] = None, permis
                 method = list(methods)[0] if methods else None
 
                 if method in permission:
-                    # Add method-specific permission dependency
-                    route.dependencies.append(Depends(require_permission(permission[method])))  # type: ignore[attr-defined]
+                    method_permission = permission[method]
+                    if method_permission is None:
+                        # Explicit "auth required, no specific permission"
+                        route.dependencies.append(Depends(get_current_user))  # type: ignore[attr-defined]
+                    else:
+                        # Add method-specific permission dependency
+                        route.dependencies.append(Depends(require_permission(method_permission)))  # type: ignore[attr-defined]
                 else:
                     # Add general authentication dependency if method not specified
                     route.dependencies.append(Depends(get_current_user))  # type: ignore[attr-defined]
+            elif permission is None:
+                # Explicit "auth required, no specific permission"
+                route.dependencies.append(Depends(get_current_user))  # type: ignore[attr-defined]
             else:
                 # Add permission-specific dependency
                 route.dependencies.append(Depends(require_permission(permission)))  # type: ignore[attr-defined]
