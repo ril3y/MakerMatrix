@@ -116,6 +116,9 @@ jobs:
     - name: Start backend server
       run: |
         source venv_test/bin/activate
+        # The backend refuses to start without a credential encryption key;
+        # generate a throwaway one per run rather than committing a key.
+        export MAKERMATRIX_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
         python -m uvicorn MakerMatrix.main:app --host 0.0.0.0 --port 57891 &
         sleep 10
         curl --retry 5 --retry-delay 5 --retry-connrefused http://localhost:57891/docs
