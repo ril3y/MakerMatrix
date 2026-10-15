@@ -193,6 +193,9 @@ jobs:
   # Bundle Size Analysis
   bundle-analysis:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     if: github.event_name == 'pull_request'
     
     steps:
