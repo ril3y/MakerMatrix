@@ -179,7 +179,9 @@ jobs:
 
     - name: Install Playwright browsers
       working-directory: MakerMatrix/frontend
-      run: npx playwright install --with-deps
+      # test:visual runs --project=chromium only; skipping firefox/webkit avoids
+      # ~180 extra apt packages (GStreamer/GTK for webkit).
+      run: npx playwright install --with-deps chromium
 
     - name: Run visual regression tests
       working-directory: MakerMatrix/frontend
