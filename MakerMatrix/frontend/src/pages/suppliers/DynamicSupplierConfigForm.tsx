@@ -51,8 +51,6 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
         setLoading(true)
         const { dynamicSupplierService } = await import('../../services/dynamic-supplier.service')
 
-        console.log('Reloading schemas with current config:', currentConfig)
-
         // Use the new context-aware schema endpoints
         const [credSchema, configSchema] = await Promise.all([
           dynamicSupplierService.getCredentialSchemaWithConfig(
@@ -66,9 +64,6 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
             currentConfig
           ),
         ])
-
-        console.log('Reloaded credential schema:', credSchema)
-        console.log('Reloaded config schema:', configSchema)
 
         // Ensure schemas are arrays
         const safeCredSchema = Array.isArray(credSchema) ? credSchema : []
@@ -104,18 +99,12 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
       const { dynamicSupplierService } = await import('../../services/dynamic-supplier.service')
 
       // Load supplier info, schemas, and environment defaults in parallel
-      console.log('Loading supplier data for:', supplierName)
       const [info, credSchema, configSchema, envDefaults] = await Promise.all([
         dynamicSupplierService.getSupplierInfo(supplierName),
         dynamicSupplierService.getCredentialSchema(supplierName),
         dynamicSupplierService.getConfigurationSchema(supplierName),
         dynamicSupplierService.getSupplierEnvDefaults(supplierName),
       ])
-
-      console.log('Loaded supplier info:', info)
-      console.log('Loaded credential schema:', credSchema)
-      console.log('Loaded config schema:', configSchema)
-      console.log('Loaded environment defaults:', envDefaults)
 
       setSupplierInfo(info)
 
@@ -143,8 +132,6 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
 
       // Override with environment defaults if available
       const finalCredentials = { ...defaultCredentials, ...envDefaults }
-
-      console.log('Final credentials with env defaults:', finalCredentials)
 
       setCredentials(finalCredentials)
       setConfig(defaultConfig)
@@ -182,9 +169,6 @@ export const DynamicSupplierConfigForm: React.FC<DynamicSupplierConfigFormProps>
       // For certain fields that affect schema structure, reload schemas
       // This handles dynamic schema changes like McMaster-Carr's mode selector
       if (fieldName === 'mode') {
-        console.log(
-          `Configuration field '${fieldName}' changed to '${value}', reloading schemas...`
-        )
         reloadSchemasWithConfig(newConfig)
       }
     },

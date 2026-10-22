@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, User, Mail, Shield, Lock, Eye, EyeOff, Key } from 'lucide-react'
 import type { User as UserType, UpdateUserRolesRequest } from '@/types/users'
 import toast from 'react-hot-toast'
-import { apiClient, type ApiResponse } from '@/services/api'
+import { apiClient, getErrorMessage, type ApiResponse } from '@/services/api'
 import { useAuth } from '@/hooks/useAuth'
 
 interface EditUserModalProps {
@@ -41,23 +41,6 @@ const EditUserModal = ({
   // Anyone editing themselves = YES current password needed
   const requireCurrentPassword = !isAdmin || isEditingSelf
 
-  // Debug logging
-  useEffect(() => {
-    if (isOpen && user) {
-      console.log('=== EditUserModal Debug ===')
-      console.log('Current User ID:', currentUser?.id)
-      console.log('Editing User ID:', user?.id)
-      console.log(
-        'Current User Roles:',
-        currentUser?.roles?.map((r) => r.name)
-      )
-      console.log('isAdmin:', isAdmin)
-      console.log('isEditingSelf:', isEditingSelf)
-      console.log('requireCurrentPassword:', requireCurrentPassword)
-      console.log('=========================')
-    }
-  }, [isOpen, user, currentUser, isAdmin, isEditingSelf, requireCurrentPassword])
-
   useEffect(() => {
     if (user) {
       setSelectedRoleIds(user.roles.map((r) => r.id))
@@ -88,8 +71,7 @@ const EditUserModal = ({
 
       onClose()
     } catch (error) {
-      const err = error as { response?: { data?: { message?: string } } }
-      toast.error(err?.response?.data?.message || 'Failed to update user roles')
+      toast.error(getErrorMessage(error, 'Failed to update user roles'))
     } finally {
       setLoading(false)
     }
@@ -168,8 +150,7 @@ const EditUserModal = ({
         toast.error(response.message || 'Failed to change password')
       }
     } catch (error) {
-      const err = error as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Failed to change password')
+      toast.error(getErrorMessage(error, 'Failed to change password'))
     } finally {
       setLoading(false)
     }

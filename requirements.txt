@@ -1,7 +1,7 @@
 # Development dependencies
-pytest==7.4.3
+pytest==9.1.1
 pytest-xdist>=3.8.0
-pytest-asyncio==0.21.1
+pytest-asyncio==1.4.0
 requests>=2.32.4
 websockets==15.0.1
 beautifulsoup4==4.12.2
@@ -20,7 +20,7 @@ psutil>=5.9.0
 # Specific version pins for production dependencies
 fastapi>=0.115.6
 uvicorn==0.27.1
-python-multipart==0.0.22
+python-multipart==0.0.32
 pydantic==2.11.10
 pillow>=10.3.0
 qrcode==7.4.2

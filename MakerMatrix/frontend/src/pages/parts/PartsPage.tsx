@@ -127,13 +127,10 @@ const PartsPage = () => {
   }
 
   const handleSort = (field: string) => {
-    console.log('Sorting by field:', field, 'Current sort:', sortBy, sortOrder)
     if (sortBy === field) {
       const newOrder = sortOrder === 'asc' ? 'desc' : 'asc'
-      console.log('Toggling sort order to:', newOrder)
       setSortOrder(newOrder)
     } else {
-      console.log('Setting new sort field:', field)
       setSortBy(field)
       setSortOrder('asc')
     }
@@ -157,18 +154,9 @@ const PartsPage = () => {
         page_size: pageSize,
       }
 
-      console.log('Loading parts with:', {
-        searchTerm,
-        supplierFilter,
-        sortBy,
-        sortOrder,
-        page,
-        append,
-      })
       const response = (await partsService.searchParts(searchParamsObj)) as unknown
 
       // Debug logging to understand response structure
-      console.log('API response:', response)
 
       // Handle different response formats
       let partsData: Part[] = []
@@ -215,8 +203,6 @@ const PartsPage = () => {
         updated_at: part.updated_at || new Date().toISOString(),
       }))
 
-      console.log('Final mapped parts:', mappedParts, 'Total:', totalCount)
-
       // Apply client-side tag filtering
       let filteredParts = mappedParts
       if (selectedTags.length > 0) {
@@ -230,7 +216,6 @@ const PartsPage = () => {
             return selectedTags.some((tag) => partTagIds.includes(tag.id))
           }
         })
-        console.log(`Filtered ${mappedParts.length} parts to ${filteredParts.length} based on tags`)
       }
 
       // Append vs replace logic for infinite scroll
@@ -249,9 +234,6 @@ const PartsPage = () => {
       if (selectedTags.length === 0) {
         const totalLoaded = append ? parts.length + filteredParts.length : filteredParts.length
         setHasMore(totalLoaded < totalCount)
-        console.log(
-          `Infinite scroll: loaded ${totalLoaded}/${totalCount}, hasMore: ${totalLoaded < totalCount}`
-        )
       } else {
         // All results already loaded when tag filtering
         setHasMore(false)
@@ -375,7 +357,6 @@ const PartsPage = () => {
       (entries) => {
         const [entry] = entries
         if (entry.isIntersecting && hasMore && !loading) {
-          console.log('Loading more parts, current page:', currentPage)
           loadParts(currentPage + 1, true) // append=true for infinite scroll
         }
       },
@@ -554,7 +535,6 @@ const PartsPage = () => {
 
     // Check if Ctrl/Cmd key is pressed (when NOT in bulk edit mode)
     if (event && (event.ctrlKey || event.metaKey)) {
-      console.log('Ctrl+click detected, entering bulk edit mode')
       // Enter bulk edit mode and toggle selection
       setBulkEditMode(true)
       togglePartSelection(partId)
@@ -608,7 +588,6 @@ const PartsPage = () => {
         page_size: totalParts || 10000, // Request all results
       }
 
-      console.log('Fetching all part IDs with params:', searchParamsObj)
       const response = await partsService.searchParts(searchParamsObj)
 
       // Extract all part IDs from response using same pattern as loadParts
@@ -619,7 +598,6 @@ const PartsPage = () => {
         allPartIds = response.map((p: Part) => p.id)
       }
 
-      console.log(`Selected all ${allPartIds.length} matching parts`)
       setSelectedPartIds(new Set(allPartIds))
     } catch (error) {
       console.error('Failed to select all parts:', error)
@@ -996,7 +974,6 @@ const PartsPage = () => {
                             (e.target as HTMLElement).tagName === 'TD'
                           ) {
                             e.preventDefault()
-                            console.log('Ctrl+mousedown detected on row')
                             if (!bulkEditMode) {
                               setBulkEditMode(true)
                             }
@@ -1035,7 +1012,6 @@ const PartsPage = () => {
                                 // Check for Ctrl+click
                                 if (e.ctrlKey || e.metaKey) {
                                   e.preventDefault()
-                                  console.log('Ctrl+mousedown detected on part name')
                                   if (!bulkEditMode) {
                                     setBulkEditMode(true)
                                   }
@@ -1084,7 +1060,6 @@ const PartsPage = () => {
                                   // Check for Ctrl+click
                                   if (e.ctrlKey || e.metaKey) {
                                     e.preventDefault()
-                                    console.log('Ctrl+mousedown detected on part number')
                                     if (!bulkEditMode) {
                                       setBulkEditMode(true)
                                     }

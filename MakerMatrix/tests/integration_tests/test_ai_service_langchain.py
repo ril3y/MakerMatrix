@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 import asyncio
 import os
 from MakerMatrix.services.ai.ai_service import ai_service
@@ -9,7 +10,7 @@ from MakerMatrix.utils.config import load_ai_config
 class TestAIServiceLangChain:
     """Live integration tests for AI service with LangChain SQL integration"""
 
-    @pytest.fixture(autouse=True)
+    @pytest_asyncio.fixture(autouse=True)
     async def setup(self):
         """Setup for AI service tests - requires Ollama running"""
         self.config = load_ai_config()

@@ -180,17 +180,15 @@ describe('SettingsPage - Appearance Tab', () => {
       expect(mockThemeContext.toggleDarkMode).toHaveBeenCalled()
     })
 
-    it('logs when auto mode is selected', async () => {
+    it('does not throw when auto mode is selected', async () => {
+      // The previous handler emitted a console.log; that debug output was
+      // removed as part of the lint-cleanup. The click should still be a
+      // safe no-op for now (the Auto button is wired up for future use).
       const user = userEvent.setup()
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
       const autoButtons = screen.getAllByText('Auto')
       const autoButton = autoButtons[autoButtons.length - 1].closest('button')
       expect(autoButton).toBeTruthy()
-      await user.click(autoButton as HTMLButtonElement)
-
-      expect(consoleSpy).toHaveBeenCalledWith('Auto mode selected')
-      consoleSpy.mockRestore()
+      await expect(user.click(autoButton as HTMLButtonElement)).resolves.not.toThrow()
     })
   })
 

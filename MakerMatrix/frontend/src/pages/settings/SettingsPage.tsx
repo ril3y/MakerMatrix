@@ -555,9 +555,6 @@ const SettingsPage = () => {
             <ImportSelector
               onImportComplete={(result) => {
                 toast.success(`Import completed: ${result.success_parts.length} parts added`)
-                if (result.failed_parts.length > 0) {
-                  console.log('Failed parts:', result.failed_parts)
-                }
               }}
             />
           </div>
@@ -767,7 +764,6 @@ const SettingsPage = () => {
                 <button
                   onClick={() => {
                     // Auto mode logic would go here
-                    console.log('Auto mode selected')
                   }}
                   className="flex flex-col items-center gap-3 p-4 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all"
                 >

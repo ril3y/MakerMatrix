@@ -39,7 +39,6 @@ export const SupplierTestResult: React.FC<SupplierTestResultProps> = ({
   className = '',
 }) => {
   // Debug logging to see what the frontend is receiving
-  console.log('SupplierTestResult received:', testResult)
 
   return (
     <div
