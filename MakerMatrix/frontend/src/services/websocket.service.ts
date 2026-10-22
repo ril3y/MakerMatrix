@@ -27,18 +27,22 @@ export class WebSocketService {
   private maxReconnectAttempts = 5
   private reconnectInterval = 1000
   private eventHandlers: Map<string, WebSocketEventHandler[]> = new Map()
-  private isConnecting = false
+  private connectPromise: Promise<void> | null = null
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(private endpoint: string = '/ws/general') {}
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
-        resolve()
-        return
-      }
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return Promise.resolve()
+    }
+    // Callers racing an in-flight handshake share its outcome.
+    if (this.connectPromise) {
+      return this.connectPromise
+    }
 
-      this.isConnecting = true
+    this.connectPromise = new Promise<void>((resolve, reject) => {
       const token = localStorage.getItem('auth_token')
 
       const envApiUrl = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL
@@ -73,34 +77,48 @@ export class WebSocketService {
 
       const wsUrl = `${protocol}//${host}${this.endpoint}${token ? `?token=${token}` : ''}`
 
-      this.ws = new WebSocket(wsUrl)
+      const ws = new WebSocket(wsUrl)
+      this.ws = ws
 
-      this.ws.onopen = () => {
-        this.isConnecting = false
+      // Every handler checks `this.ws === ws`: after disconnect() (or a newer
+      // connect()) a superseded socket can still fire close/error events, and
+      // those must not null out or reconnect over the current socket.
+      ws.onopen = () => {
+        if (this.ws !== ws) return
+        this.connectPromise = null
         this.reconnectAttempts = 0
         this.sendMessage({ type: 'subscribe_activities' })
         resolve()
       }
 
-      this.ws.onclose = (event) => {
-        this.isConnecting = false
+      ws.onclose = (event) => {
+        if (this.ws !== ws) {
+          // Superseded mid-handshake: settle the promise so awaiters don't hang.
+          reject(new Error(`WebSocket ${this.endpoint} connection superseded`))
+          return
+        }
         this.ws = null
+        this.connectPromise = null
+        reject(new Error(`WebSocket ${this.endpoint} closed (code ${event.code})`))
 
         if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-          setTimeout(() => {
-            this.reconnectAttempts++
-            this.connect()
+          this.reconnectAttempts++
+          this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null
+            // Failures are retried by onclose; nothing awaits this promise.
+            this.connect().catch(() => {})
           }, this.reconnectInterval * this.reconnectAttempts)
         }
       }
 
-      this.ws.onerror = (error) => {
+      ws.onerror = (error) => {
+        if (this.ws !== ws) return
         console.error(`❌ WebSocket error on ${this.endpoint}:`, error)
-        this.isConnecting = false
-        reject(error)
+        // onclose always follows onerror and handles cleanup/reconnect.
       }
 
-      this.ws.onmessage = (event) => {
+      ws.onmessage = (event) => {
+        if (this.ws !== ws) return
         try {
           const message: WebSocketMessage = JSON.parse(event.data)
           this.handleMessage(message)
@@ -109,12 +127,25 @@ export class WebSocketService {
         }
       }
     })
+
+    return this.connectPromise
   }
 
   disconnect() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+    this.reconnectAttempts = 0
+    this.connectPromise = null
     if (this.ws) {
-      this.ws.close(1000, 'Client disconnect')
+      const ws = this.ws
       this.ws = null
+      ws.close(1000, 'Client disconnect')
     }
   }
 
@@ -233,7 +264,10 @@ export class WebSocketService {
 
   // Heartbeat
   startHeartbeat(interval: number = 30000) {
-    setInterval(() => {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+    }
+    this.heartbeatTimer = setInterval(() => {
       this.sendMessage({
         type: 'ping',
         timestamp: new Date().toISOString(),

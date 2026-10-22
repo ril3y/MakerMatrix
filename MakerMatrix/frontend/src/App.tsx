@@ -30,7 +30,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import LoadingScreen from '@/components/ui/LoadingScreen'
 
 function AppContent() {
-  const { checkAuth, isLoading, isAuthenticated } = useAuthStore()
+  const { checkAuth, isAuthenticated } = useAuthStore()
   const { isDarkMode } = useTheme()
 
   useEffect(() => {
@@ -40,10 +40,9 @@ function AppContent() {
     }
   }, [checkAuth, isAuthenticated])
 
-  if (isLoading) {
-    return <LoadingScreen />
-  }
-
+  // Don't gate the whole tree on `isLoading` here: login/logout toggle it, and
+  // unmounting <Router> mid-login leaves LoginPage's navigate() pointing at a
+  // dead router. ProtectedRoute shows its own LoadingScreen while auth resolves.
   return (
     <>
       <Router>
