@@ -46,8 +46,14 @@ def mock_get_current_user():
     )
 
 
-# Override the dependency
-app.dependency_overrides[get_current_user] = mock_get_current_user
+# Override the dependency only while this module's tests run. Setting it at
+# import time leaked the mock admin into every later test in the session
+# (e.g. test_security_criticals' unauthenticated-request checks).
+@pytest.fixture(autouse=True, scope="module")
+def _override_current_user():
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 class TestImportValidation:

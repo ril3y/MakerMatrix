@@ -36,7 +36,15 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_session] = override_get_db
+# Scope the override to this module; setting it at import time leaked it
+# into every later test in the session.
+@pytest.fixture(autouse=True, scope="module")
+def _override_get_session():
+    app.dependency_overrides[get_session] = override_get_db
+    yield
+    app.dependency_overrides.pop(get_session, None)
+
+
 client = TestClient(app)
 
 
