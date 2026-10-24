@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, Optional, List
-from sqlalchemy import delete
+from sqlalchemy import delete, func
 from sqlmodel import Session, select
 
 from MakerMatrix.database.db import get_session
@@ -146,6 +146,19 @@ class CategoryRepository:
         session.commit()
 
         return count
+
+    @staticmethod
+    def get_category_count(session: Session) -> int:
+        """
+        Get the total number of categories using an efficient SQL COUNT query.
+
+        Args:
+            session: The database session
+
+        Returns:
+            int: Total number of categories
+        """
+        return session.exec(select(func.count()).select_from(CategoryModel)).one()
 
     @staticmethod
     def get_all_categories(session: Session) -> List[CategoryModel]:

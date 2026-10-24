@@ -86,6 +86,26 @@ class LocationService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"get all {self.entity_name.lower()}s")
 
+    def get_location_count(self) -> ServiceResponse[Dict[str, int]]:
+        """
+        Get total location count.
+
+        CONSOLIDATED SESSION MANAGEMENT: Service owns session lifecycle so the
+        router never needs to open Session(engine) directly for a simple count.
+        """
+        try:
+            self.log_operation("get_count", self.entity_name)
+
+            with self.get_session() as session:
+                total = self.location_repo.get_location_count(session)
+                return self.success_response(
+                    f"Total {self.entity_name.lower()} count retrieved successfully",
+                    {"total_locations": total},
+                )
+
+        except Exception as e:
+            return self.handle_exception(e, f"get {self.entity_name.lower()} count")
+
     def get_location(self, location_query: LocationQueryModel) -> ServiceResponse[Dict[str, Any]]:
         """
         Get a location by query parameters.
@@ -275,13 +295,35 @@ class LocationService(BaseService):
         except Exception as e:
             return self.handle_exception(e, f"preview delete {self.entity_name}")
 
-    @staticmethod
-    def get_parts_effected_locations(location_id: str):
-        # TODO(mypy): location_repo is an instance attribute on LocationService
-        # but is accessed here through the class. Likely a missed conversion to
-        # @classmethod / instance method; flag for follow-up rather than refactor
-        # during the typing sweep.
-        return LocationService.location_repo.get_parts_effected_locations(location_id)  # type: ignore[misc]
+    def get_parts_effected_locations(self, location_id: str) -> List[str]:
+        """Return the IDs of parts affected by deleting ``location_id``.
+
+        Previously decorated as @staticmethod but referenced
+        LocationService.location_repo (an instance attribute set in
+        __init__) — calls always raised AttributeError. The underlying
+        repository also had no ``get_parts_effected_locations`` method, so
+        this method was effectively dead. It is now rewritten as a real
+        instance method that walks the location hierarchy and returns the
+        affected part IDs using the existing repository helpers.
+
+        Returns an empty list if the location does not exist (rather than
+        propagating ResourceNotFoundError) to keep the contract simple for
+        the "preview delete" UX this is intended for.
+        """
+        with self.get_session() as session:
+            try:
+                hierarchy = self.location_repo.get_location_hierarchy(session, location_id)
+            except ResourceNotFoundError:
+                return []
+            except Exception:
+                logger.exception(
+                    "get_location_hierarchy raised unexpectedly for id %s; returning []",
+                    location_id,
+                )
+                return []
+            if not hierarchy:
+                return []
+            return self.location_repo.get_affected_part_ids(session, hierarchy["affected_location_ids"])
 
     @staticmethod
     def delete_location(location_id: str) -> Dict:
@@ -401,10 +443,16 @@ class LocationService(BaseService):
             },
         }
 
-    @staticmethod
-    def delete_all_locations():
-        session = next(get_session())
-        return LocationService.location_repo.delete_all_locations(session)
+    def delete_all_locations(self):
+        """Delete every location.
+
+        Previously decorated as @staticmethod but referenced
+        LocationService.location_repo, which is an instance attribute — calls
+        always raised AttributeError. Converted to an instance method that
+        opens a managed session via BaseService.get_session().
+        """
+        with self.get_session() as session:
+            return self.location_repo.delete_all_locations(session)
 
     def get_or_create_unsorted_location(self) -> ServiceResponse[Dict[str, Any]]:
         """

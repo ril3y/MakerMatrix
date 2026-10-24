@@ -1,3 +1,4 @@
+import asyncio
 from typing import Dict, Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette import status
@@ -9,6 +10,7 @@ from MakerMatrix.schemas.part_response import PartResponse
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.schemas.bulk_update import BulkUpdateRequest, BulkUpdateResponse
 from MakerMatrix.schemas.bulk_delete import BulkDeleteRequest, BulkDeleteResponse
+from MakerMatrix.services.data.location_service import LocationService
 from MakerMatrix.services.data.part_service import PartService
 from MakerMatrix.models.user_models import UserModel
 from MakerMatrix.auth.dependencies import get_current_user
@@ -17,7 +19,11 @@ from MakerMatrix.services.system.supplier_config_service import SupplierConfigSe
 from MakerMatrix.suppliers.registry import get_available_suppliers
 from MakerMatrix.services.system.task_service import task_service
 from MakerMatrix.models.task_models import CreateTaskRequest, TaskType, TaskPriority
-from MakerMatrix.dependencies import get_part_service
+from MakerMatrix.dependencies import (
+    get_location_service,
+    get_part_service,
+    get_supplier_config_service,
+)
 from MakerMatrix.services.system.enrichment_requirement_validator import EnrichmentRequirementValidator
 from MakerMatrix.models.enrichment_requirement_models import EnrichmentRequirementCheckResponse
 
@@ -41,6 +47,7 @@ async def add_part(
     request: Request,
     current_user: UserModel = Depends(require_permission("parts:create")),
     part_service: PartService = Depends(get_part_service),
+    supplier_config_service: SupplierConfigService = Depends(get_supplier_config_service),
 ) -> ResponseSchema[PartResponse]:
     # Convert PartCreate to dict and include category_names
     part_data = part.model_dump()
@@ -50,8 +57,11 @@ async def add_part(
     enrichment_supplier = part_data.pop("enrichment_supplier", None)
     enrichment_capabilities = part_data.pop("enrichment_capabilities", [])
 
-    # Process to add part
-    service_response = part_service.add_part(part_data)
+    # Process to add part. part_service.add_part() does blocking I/O — file
+    # downloads via the sync `requests` library and a synchronous SQLAlchemy
+    # session. Running it on a worker thread keeps the FastAPI event loop free
+    # to service other requests while a part is being created/enriched.
+    service_response = await asyncio.to_thread(part_service.add_part, part_data)
     created_part = validate_service_response(service_response)
     part_id = created_part["id"]
 
@@ -84,7 +94,12 @@ async def add_part(
     enrichment_message = ""
     if auto_enrich and enrichment_supplier:
         enrichment_message = await _handle_enrichment(
-            part_id, created_part, enrichment_supplier, enrichment_capabilities, current_user
+            part_id,
+            created_part,
+            enrichment_supplier,
+            enrichment_capabilities,
+            current_user,
+            supplier_config_service,
         )
 
     return BaseRouter.build_success_response(
@@ -94,8 +109,9 @@ async def add_part(
 
 @router.get("/get_part_counts", response_model=ResponseSchema[int])
 @standard_error_handling
-async def get_part_counts() -> ResponseSchema[int]:
-    part_service = PartService()
+async def get_part_counts(
+    part_service: PartService = Depends(get_part_service),
+) -> ResponseSchema[int]:
     service_response = part_service.get_part_counts()
     data = validate_service_response(service_response)
     return BaseRouter.build_success_response(data=data["total_parts"], message=service_response.message)
@@ -112,6 +128,7 @@ async def delete_part(
     part_id: Optional[str] = Query(None, description="Part ID"),
     part_name: Optional[str] = Query(None, description="Part Name"),
     part_number: Optional[str] = Query(None, description="Part Number"),
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Delete a part based on ID, part name, or part number.
@@ -123,7 +140,6 @@ async def delete_part(
         raise ValueError("At least one identifier (part_id, part_name, or part_number) must be provided")
 
     # Retrieve part using details
-    part_service = PartService()
     service_response = part_service.get_part_by_details(part_id=part_id, part_name=part_name, part_number=part_number)
     part = validate_service_response(service_response)
 
@@ -225,6 +241,7 @@ async def update_part(
     request: Request,
     current_user: UserModel = Depends(require_permission("parts:update")),
     part_service: PartService = Depends(get_part_service),
+    location_service: LocationService = Depends(get_location_service),
 ) -> ResponseSchema[PartResponse]:
     # Capture original data for change tracking
     original_part_response = part_service.get_part_by_id(part_id)
@@ -237,21 +254,26 @@ async def update_part(
     # Log activity with changes
     try:
         from MakerMatrix.services.activity_service import get_activity_service
-        from MakerMatrix.services.data.location_service import LocationService
 
         activity_service = get_activity_service()
-        location_service = LocationService()
 
         # Helper function to resolve location UUIDs to names
         def resolve_location_name(location_id: str) -> str:
             if not location_id:
                 return "No Location"
             try:
-                location_response = location_service.get_location_by_id(location_id)
-                if location_response and location_response.get("data"):
-                    return location_response["data"].get("name", location_id)
+                # NOTE: the LocationService method is get_location_details(id),
+                # returning ServiceResponse[Dict[str, Any]]. The previous code
+                # called a non-existent method and treated the response like
+                # a dict — the bare except swallowed the AttributeError, so
+                # users silently saw raw UUIDs in activity logs instead of
+                # human-readable location names.
+                location_response = location_service.get_location_details(location_id)
+                if location_response and location_response.success and location_response.data:
+                    return location_response.data.get("name", location_id)
                 return location_id
-            except:
+            except Exception:
+                logger.exception(f"Failed to resolve location name for id {location_id}")
                 return location_id
 
         # Track what changed
@@ -325,11 +347,11 @@ async def search_parts_text(
     query: str = Query(..., min_length=1, description="Search term"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[List[PartResponse]]:
     """
     Simple text search across part names, numbers, and descriptions.
     """
-    part_service = PartService()
     service_response = part_service.search_parts_text(query, page, page_size)
     data = validate_service_response(service_response)
 
@@ -347,12 +369,12 @@ async def search_parts_text(
 async def get_part_suggestions(
     query: str = Query(..., min_length=3, description="Search term for suggestions"),
     limit: int = Query(default=10, ge=1, le=20),
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[List[str]]:
     """
     Get autocomplete suggestions for part names based on search query.
     Returns up to 'limit' part names that start with or contain the query.
     """
-    part_service = PartService()
     service_response = part_service.get_part_suggestions(query, limit)
     data = validate_service_response(service_response)
 
@@ -364,9 +386,9 @@ async def get_part_suggestions(
 @log_activity("parts_cleared", "User {username} cleared all parts")
 async def clear_all_parts(
     current_user: UserModel = Depends(require_permission("admin")),
+    part_service: PartService = Depends(get_part_service),
 ) -> ResponseSchema[Dict[str, Any]]:
     """Clear all parts from the database - USE WITH CAUTION! (Admin only)"""
-    part_service = PartService()
     service_response = part_service.clear_all_parts()
     data = validate_service_response(service_response)
 
@@ -379,6 +401,7 @@ async def _handle_enrichment(
     enrichment_supplier: str,
     enrichment_capabilities: List[str],
     current_user: UserModel,
+    supplier_config_service: SupplierConfigService,
 ) -> str:
     """
     Handle automatic enrichment for a newly created part.
@@ -393,7 +416,6 @@ async def _handle_enrichment(
             return f" Warning: Supplier '{enrichment_supplier}' not configured on backend."
 
         # Check if supplier is properly configured
-        supplier_config_service = SupplierConfigService()
         try:
             # Try enrichment_supplier as-is first, then try uppercase version
             try:
@@ -419,14 +441,22 @@ async def _handle_enrichment(
                 related_entity_id=part_id,
             )
 
-            enrichment_task = await task_service.create_task(task_request, user_id=current_user.id)
-            enrichment_message = f" Enrichment task created (ID: {enrichment_task.id})."
+            # task_service.create_task returns ServiceResponse[Dict[str, Any]],
+            # not a TaskModel. The previous .id access raised AttributeError —
+            # the surrounding broad except hid this on the QR-scan enrichment path.
+            enrichment_response = await task_service.create_task(task_request, user_id=current_user.id)
+            if not enrichment_response.success or not enrichment_response.data:
+                return f" Warning: Enrichment task creation failed - {enrichment_response.message}"
+            enrichment_task_id = enrichment_response.data.get("id")
+            if not enrichment_task_id:
+                return f" Warning: Enrichment task created but ID missing from response."
+            enrichment_message = f" Enrichment task created (ID: {enrichment_task_id})."
 
             # Wait for enrichment to complete and return enriched part
             # Note: This is a simplified approach - in production you might want to use WebSocket or polling
             import asyncio
 
-            enriched_part = await _wait_for_enrichment_completion(part_id, enrichment_task.id, timeout=30)
+            enriched_part = await _wait_for_enrichment_completion(part_id, enrichment_task_id, timeout=30)
             if enriched_part:
                 created_part.update(enriched_part)
                 return f" Part successfully enriched from {enrichment_supplier}."
@@ -730,6 +760,7 @@ async def enrich_part_from_supplier(
     part_identifier: str,
     force_refresh: bool = False,
     current_user: UserModel = Depends(require_permission("parts:update")),
+    config_service: SupplierConfigService = Depends(get_supplier_config_service),
 ) -> ResponseSchema[Dict[str, Any]]:
     """
     Instant Enrichment endpoint - enrich part data immediately from supplier.
@@ -787,8 +818,6 @@ async def enrich_part_from_supplier(
 
         # Configure supplier with credentials from database/env
         try:
-            config_service = SupplierConfigService()
-
             # Get supplier config and credentials
             supplier_config = config_service.get_supplier_config(supplier_name)
             credentials = config_service.get_supplier_credentials(supplier_name)

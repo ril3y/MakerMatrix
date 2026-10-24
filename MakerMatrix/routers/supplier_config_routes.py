@@ -15,6 +15,7 @@ import json
 from MakerMatrix.auth.dependencies import get_current_user
 from MakerMatrix.auth.guards import require_permission
 from MakerMatrix.services.system.supplier_config_service import SupplierConfigService
+from MakerMatrix.dependencies import get_supplier_config_service
 from MakerMatrix.schemas.response import ResponseSchema
 from MakerMatrix.repositories.custom_exceptions import (
     ResourceNotFoundError,
@@ -144,10 +145,13 @@ class ConnectionTestResult(BaseModel):
 
 
 @router.get("/suppliers", response_model=ResponseSchema[List[Dict[str, Any]]])
-async def get_all_suppliers(enabled_only: bool = False, current_user: UserModel = Depends(get_current_user)):
+async def get_all_suppliers(
+    enabled_only: bool = False,
+    current_user: UserModel = Depends(get_current_user),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
+):
     """Get all supplier configurations"""
     try:
-        service = SupplierConfigService()
         config_dicts = service.get_all_supplier_configs(enabled_only=enabled_only)
 
         return ResponseSchema(
@@ -163,7 +167,9 @@ async def get_all_suppliers(enabled_only: bool = False, current_user: UserModel 
 
 @router.post("/suppliers", response_model=ResponseSchema[Dict[str, Any]])
 async def create_supplier(
-    config_data: SupplierConfigCreate, current_user: UserModel = Depends(require_permission("supplier_config:create"))
+    config_data: SupplierConfigCreate,
+    current_user: UserModel = Depends(require_permission("supplier_config:create")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Create a new supplier configuration - automatically fetches favicon if website_url is set"""
     try:
@@ -203,7 +209,6 @@ async def create_supplier(
                 logger.warning(f"Failed to auto-fetch favicon for {supplier_name}: {e}")
                 # Continue with creation even if favicon fetch fails
 
-        service = SupplierConfigService()
         config = service.create_supplier_config(config_dict, user_id=current_user.id)
 
         # Fetch the supplier again to get a fresh instance with all data
@@ -228,11 +233,13 @@ async def create_supplier(
 
 @router.get("/suppliers/{supplier_name}", response_model=ResponseSchema[Dict[str, Any]])
 async def get_supplier(
-    supplier_name: str, include_credentials: bool = False, current_user: UserModel = Depends(get_current_user)
+    supplier_name: str,
+    include_credentials: bool = False,
+    current_user: UserModel = Depends(get_current_user),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Get specific supplier configuration"""
     try:
-        service = SupplierConfigService()
         config = service.get_supplier_config(supplier_name, include_credentials=include_credentials)
 
         return ResponseSchema(
@@ -253,10 +260,10 @@ async def update_supplier(
     supplier_name: str,
     update_data: SupplierConfigUpdate,
     current_user: UserModel = Depends(require_permission("supplier_config:update")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Update supplier configuration - automatically fetches favicon if website_url is set"""
     try:
-        service = SupplierConfigService()
         update_dict = update_data.dict(exclude_unset=True)
 
         # Get current config to check for existing website_url
@@ -298,14 +305,15 @@ async def update_supplier(
 
 @router.delete("/suppliers/{supplier_name}", response_model=ResponseSchema[Dict[str, str]])
 async def delete_supplier(
-    supplier_name: str, current_user: UserModel = Depends(require_permission("supplier_config:delete"))
+    supplier_name: str,
+    current_user: UserModel = Depends(require_permission("supplier_config:delete")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Delete supplier configuration"""
     try:
         if not supplier_name or not supplier_name.strip():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Supplier name is required")
 
-        service = SupplierConfigService()
         service.delete_supplier_config(supplier_name)
 
         return ResponseSchema(
@@ -410,11 +418,13 @@ async def get_supplier_config_fields(supplier_name: str, current_user: UserModel
 
 
 @router.get("/suppliers/{supplier_name}/config-options", response_model=ResponseSchema[List[Dict[str, Any]]])
-async def get_supplier_config_options(supplier_name: str, current_user: UserModel = Depends(get_current_user)):
+async def get_supplier_config_options(
+    supplier_name: str,
+    current_user: UserModel = Depends(get_current_user),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
+):
     """Get all configuration options for a supplier (e.g., sandbox vs production for DigiKey)"""
     try:
-        service = SupplierConfigService()
-
         # Get the supplier instance to call get_configuration_options()
         try:
             supplier_config = service.get_supplier_config(supplier_name.upper())
@@ -452,11 +462,10 @@ async def store_credentials(
     supplier_name: str,
     credentials: SupplierCredentials,
     current_user: UserModel = Depends(require_permission("supplier_config:credentials")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Store encrypted credentials for a supplier"""
     try:
-        service = SupplierConfigService()
-
         # Filter out None values
         creds_dict = {k: v for k, v in credentials.model_dump().items() if v is not None}
 
@@ -483,11 +492,10 @@ async def update_credentials(
     supplier_name: str,
     credentials: SupplierCredentials,
     current_user: UserModel = Depends(require_permission("supplier_config:credentials")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Update encrypted credentials for a supplier"""
     try:
-        service = SupplierConfigService()
-
         # Filter out None values
         creds_dict = {k: v for k, v in credentials.model_dump().items() if v is not None}
 
@@ -511,12 +519,12 @@ async def update_credentials(
 
 @router.delete("/credentials/{supplier_name}", response_model=ResponseSchema[Dict[str, str]])
 async def delete_credentials(
-    supplier_name: str, current_user: UserModel = Depends(require_permission("supplier_config:credentials"))
+    supplier_name: str,
+    current_user: UserModel = Depends(require_permission("supplier_config:credentials")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Delete credentials for a supplier"""
     try:
-        service = SupplierConfigService()
-
         # Delete by setting empty credentials
         service.set_supplier_credentials(supplier_name, {}, user_id=current_user.id)
 
@@ -538,7 +546,9 @@ async def delete_credentials(
 
 @router.post("/import", response_model=ResponseSchema[List[str]])
 async def import_configurations(
-    file: UploadFile = File(...), current_user: UserModel = Depends(require_permission("supplier_config:import"))
+    file: UploadFile = File(...),
+    current_user: UserModel = Depends(require_permission("supplier_config:import")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Import supplier configurations from JSON file"""
     try:
@@ -548,7 +558,6 @@ async def import_configurations(
         content = await file.read()
         import_data = json.loads(content)
 
-        service = SupplierConfigService()
         imported_suppliers = service.import_supplier_configs(import_data, user_id=current_user.id)
 
         return ResponseSchema(
@@ -568,11 +577,12 @@ async def import_configurations(
 
 @router.get("/export", response_model=ResponseSchema[Dict[str, Any]])
 async def export_configurations(
-    include_credentials: bool = False, current_user: UserModel = Depends(require_permission("supplier_config:export"))
+    include_credentials: bool = False,
+    current_user: UserModel = Depends(require_permission("supplier_config:export")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
 ):
     """Export all supplier configurations to JSON"""
     try:
-        service = SupplierConfigService()
         export_data = service.export_supplier_configs(include_credentials=include_credentials)
 
         return ResponseSchema(
@@ -589,10 +599,12 @@ async def export_configurations(
 
 
 @router.post("/initialize-defaults", response_model=ResponseSchema[List[str]])
-async def initialize_default_suppliers(current_user: UserModel = Depends(require_permission("supplier_config:create"))):
+async def initialize_default_suppliers(
+    current_user: UserModel = Depends(require_permission("supplier_config:create")),
+    service: SupplierConfigService = Depends(get_supplier_config_service),
+):
     """Initialize default supplier configurations"""
     try:
-        service = SupplierConfigService()
         configs = service.initialize_default_suppliers()
 
         # configs is a list of dicts, extract supplier_name from each
