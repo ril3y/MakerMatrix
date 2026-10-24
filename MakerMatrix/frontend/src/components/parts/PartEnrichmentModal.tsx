@@ -131,51 +131,36 @@ const PartEnrichmentModal = ({
   const detectSupplierFromPart = (part: Part): string => {
     const additionalProps = part.additional_properties || {}
 
-    console.log('Detecting supplier from part data:', {
-      enrichment_source: additionalProps.enrichment_source,
-      lcsc_part_number: additionalProps.lcsc_part_number,
-      supplier: part.supplier,
-      part_vendor: additionalProps.part_vendor,
-      additional_properties: part.additional_properties,
-    })
-
     // First check enrichment_source
     if (
       additionalProps.enrichment_source &&
       typeof additionalProps.enrichment_source === 'string'
     ) {
-      console.log('Using enrichment_source:', additionalProps.enrichment_source)
       return additionalProps.enrichment_source.toLowerCase()
     }
 
     // Check for supplier-specific part numbers
     if (additionalProps.lcsc_part_number) {
-      console.log('Detected LCSC from part number')
       return 'lcsc'
     }
 
     if (additionalProps.digikey_part_number) {
-      console.log('Detected DIGIKEY from part number')
       return 'digikey'
     }
 
     if (additionalProps.mouser_part_number) {
-      console.log('Detected MOUSER from part number')
       return 'mouser'
     }
 
     // Fallback to existing logic
     if (part.supplier) {
-      console.log('Using part.supplier:', part.supplier)
       return part.supplier.toLowerCase()
     }
 
     if (additionalProps.part_vendor && typeof additionalProps.part_vendor === 'string') {
-      console.log('Using part.part_vendor:', additionalProps.part_vendor)
       return additionalProps.part_vendor.toLowerCase()
     }
 
-    console.log('No supplier detected from part data')
     return ''
   }
 
@@ -189,7 +174,6 @@ const PartEnrichmentModal = ({
     try {
       const check = await partsService.checkEnrichmentRequirements(part.id, selectedSupplier)
       setRequirementCheck(check)
-      console.log('Enrichment requirement check:', check)
 
       // Initialize missing field values object
       // Pre-populate with existing part data where applicable
@@ -227,20 +211,12 @@ const PartEnrichmentModal = ({
     if (isOpen && Object.keys(supplierCapabilities).length > 0 && !selectedSupplier) {
       // Set default selected supplier with intelligent detection
       const detectedSupplier = detectSupplierFromPart(part)
-      console.log(
-        'Detected supplier:',
-        detectedSupplier,
-        'Available suppliers:',
-        Object.keys(supplierCapabilities)
-      )
 
       if (detectedSupplier && supplierCapabilities[detectedSupplier]) {
-        console.log('Auto-selecting detected supplier:', detectedSupplier)
         setSelectedSupplier(detectedSupplier)
       } else if (Object.keys(supplierCapabilities).length === 1) {
         // If only one supplier available, auto-select it
         const onlySupplier = Object.keys(supplierCapabilities)[0]
-        console.log('Auto-selecting only available supplier:', onlySupplier)
         setSelectedSupplier(onlySupplier)
       }
     }
@@ -249,17 +225,12 @@ const PartEnrichmentModal = ({
   useEffect(() => {
     if (selectedSupplier && supplierCapabilities[selectedSupplier]) {
       const caps = supplierCapabilities[selectedSupplier] || []
-      console.log('Setting available capabilities:', caps)
-      console.log('Full supplier data:', supplierCapabilities[selectedSupplier])
       setAvailableCapabilities(caps)
 
       // Auto-select most common/useful capabilities
       const recommended = caps.filter((cap: string) =>
         ['fetch_datasheet', 'fetch_image', 'get_part_details'].includes(cap)
       )
-      console.log('Available capabilities:', caps)
-      console.log('Auto-selected capabilities:', recommended)
-      console.log('Capability definitions keys:', Object.keys(capabilityDefinitions))
       setSelectedCapabilities(recommended)
 
       // Check enrichment requirements for selected supplier
@@ -327,12 +298,9 @@ const PartEnrichmentModal = ({
   const loadSupplierCapabilities = async () => {
     try {
       const response = await tasksService.getSupplierCapabilities()
-      console.log('Raw response:', response)
-      console.log('Response data:', response.data)
 
       // Handle the response structure - it might be response.data.data or response.data
       const capabilitiesData = response.data?.data || response.data
-      console.log('Extracted capabilities data:', capabilitiesData)
 
       // Type guard to ensure we have the right structure
       const validCapabilities: Record<string, string[]> = {}
@@ -728,7 +696,6 @@ const PartEnrichmentModal = ({
                       {availableCapabilities.map((capability) => {
                         const definition =
                           capabilityDefinitions[capability as keyof typeof capabilityDefinitions]
-                        console.log(`Capability: ${capability}, Definition found: ${!!definition}`)
                         if (!definition) {
                           console.warn(`No definition found for capability: ${capability}`)
                           return null

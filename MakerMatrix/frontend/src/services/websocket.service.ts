@@ -27,24 +27,27 @@ export class WebSocketService {
   private maxReconnectAttempts = 5
   private reconnectInterval = 1000
   private eventHandlers: Map<string, WebSocketEventHandler[]> = new Map()
-  private isConnecting = false
+  private connectPromise: Promise<void> | null = null
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(private endpoint: string = '/ws/general') {}
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
-        resolve()
-        return
-      }
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return Promise.resolve()
+    }
+    // Callers racing an in-flight handshake share its outcome.
+    if (this.connectPromise) {
+      return this.connectPromise
+    }
 
-      this.isConnecting = true
+    this.connectPromise = new Promise<void>((resolve, reject) => {
       const token = localStorage.getItem('auth_token')
 
       const envApiUrl = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL
       const currentPort = window.location.port
       const currentProtocol = window.location.protocol
-      console.log(`🔍 Current port: ${currentPort}`)
 
       let protocol = currentProtocol === 'https:' ? 'wss:' : 'ws:'
       let host = window.location.host
@@ -57,7 +60,6 @@ export class WebSocketService {
           protocol = apiProtocol === 'https:' ? 'wss:' : 'ws:'
           host = `${hostname}${port ? `:${port}` : ''}`
           resolvedFromEnv = true
-          console.log(`🌐 Using VITE_API_URL for WebSocket host: ${parsedUrl.origin}`)
         } catch (error) {
           console.warn('⚠️ Failed to parse VITE_API_URL for WebSocket usage:', error)
         }
@@ -71,68 +73,79 @@ export class WebSocketService {
         protocol = 'ws:'
         const backendPort = '8080'
         host = `${window.location.hostname}:${backendPort}`
-        console.log(`🔧 Dev fallback engaged, forcing WS connection to backend: ${host}`)
       }
 
       const wsUrl = `${protocol}//${host}${this.endpoint}${token ? `?token=${token}` : ''}`
 
-      console.log(`🔗 Attempting WebSocket connection to: ${wsUrl}`)
-      console.log(`🔑 Auth token available: ${!!token}`)
-      console.log(`📍 Endpoint: ${this.endpoint}`)
-      console.log(`🏠 Host resolved to: ${host}`)
+      const ws = new WebSocket(wsUrl)
+      this.ws = ws
 
-      this.ws = new WebSocket(wsUrl)
-
-      this.ws.onopen = () => {
-        console.log(`✅ WebSocket connected to ${this.endpoint}`)
-        this.isConnecting = false
+      // Every handler checks `this.ws === ws`: after disconnect() (or a newer
+      // connect()) a superseded socket can still fire close/error events, and
+      // those must not null out or reconnect over the current socket.
+      ws.onopen = () => {
+        if (this.ws !== ws) return
+        this.connectPromise = null
         this.reconnectAttempts = 0
         this.sendMessage({ type: 'subscribe_activities' })
         resolve()
       }
 
-      this.ws.onclose = (event) => {
-        console.log(`❌ WebSocket disconnected from ${this.endpoint}:`, event.code, event.reason)
-        console.log(`🔍 Close event details:`, {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        })
-        this.isConnecting = false
+      ws.onclose = (event) => {
+        if (this.ws !== ws) {
+          // Superseded mid-handshake: settle the promise so awaiters don't hang.
+          reject(new Error(`WebSocket ${this.endpoint} connection superseded`))
+          return
+        }
         this.ws = null
+        this.connectPromise = null
+        reject(new Error(`WebSocket ${this.endpoint} closed (code ${event.code})`))
 
         if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-          setTimeout(() => {
-            this.reconnectAttempts++
-            console.log(`🔄 Reconnecting to ${this.endpoint}... attempt ${this.reconnectAttempts}`)
-            this.connect()
+          this.reconnectAttempts++
+          this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null
+            // Failures are retried by onclose; nothing awaits this promise.
+            this.connect().catch(() => {})
           }, this.reconnectInterval * this.reconnectAttempts)
         }
       }
 
-      this.ws.onerror = (error) => {
+      ws.onerror = (error) => {
+        if (this.ws !== ws) return
         console.error(`❌ WebSocket error on ${this.endpoint}:`, error)
-        console.log(`🔍 Error details:`, error)
-        this.isConnecting = false
-        reject(error)
+        // onclose always follows onerror and handles cleanup/reconnect.
       }
 
-      this.ws.onmessage = (event) => {
+      ws.onmessage = (event) => {
+        if (this.ws !== ws) return
         try {
           const message: WebSocketMessage = JSON.parse(event.data)
-          console.log(`📨 WebSocket message on ${this.endpoint}:`, message)
           this.handleMessage(message)
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error)
         }
       }
     })
+
+    return this.connectPromise
   }
 
   disconnect() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+    this.reconnectAttempts = 0
+    this.connectPromise = null
     if (this.ws) {
-      this.ws.close(1000, 'Client disconnect')
+      const ws = this.ws
       this.ws = null
+      ws.close(1000, 'Client disconnect')
     }
   }
 
@@ -172,7 +185,6 @@ export class WebSocketService {
     }
 
     if (message.type === 'connection') {
-      console.log('WebSocket connection confirmed:', message.data)
       return
     }
 
@@ -252,7 +264,10 @@ export class WebSocketService {
 
   // Heartbeat
   startHeartbeat(interval: number = 30000) {
-    setInterval(() => {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+    }
+    this.heartbeatTimer = setInterval(() => {
       this.sendMessage({
         type: 'ping',
         timestamp: new Date().toISOString(),
@@ -286,8 +301,10 @@ export class WebSocketService {
 // Global instance for general activity updates
 export const generalWebSocket = new WebSocketService('/ws/general')
 
-// Auto-connect when module is imported
-if (typeof window !== 'undefined') {
-  generalWebSocket.connect().catch(console.error)
-  generalWebSocket.startHeartbeat()
-}
+// NOTE: Connection lifecycle is owned by `WebSocketProvider` (see
+// `contexts/WebSocketContext.tsx`). Connecting at module load runs before
+// `setAuthToken` has finished syncing localStorage on first login, so the
+// initial WS handshake used to go out without a token — which is exactly
+// why the login flow had to do a full-page reload. The provider now connects
+// when the user becomes authenticated and disconnects on logout, so the
+// auth-token-in-URL race is gone.

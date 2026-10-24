@@ -625,6 +625,8 @@ export function useTasksDashboard() {
     try {
       taskWebSocket.disconnect()
       await taskWebSocket.connect()
+      // disconnect() stops the heartbeat, so restart it for the new socket.
+      taskWebSocket.startHeartbeat()
       setIsWebSocketConnected(true)
       toast.success('WebSocket reconnected')
     } catch (error) {

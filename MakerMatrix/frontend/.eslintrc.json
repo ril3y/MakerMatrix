@@ -69,9 +69,10 @@
     ],
 
     // General best practices
-    // Allow console statements in development (useful for debugging)
-    // In production builds, these will be removed by build tools
-    "no-console": "off",
+    // Disallow console.log/console.debug (they leak debug noise — and in some
+    // cases secrets like auth tokens — into production). Keep warn/error/info
+    // for intentional operator-facing logging.
+    "no-console": ["error", { "allow": ["warn", "error", "info"] }],
     "no-debugger": "warn",
     "prefer-const": "warn",
     "no-unused-vars": "off",
@@ -89,5 +90,18 @@
     "react": {
       "version": "detect"
     }
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/__tests__/**/*.{ts,tsx,js}",
+        "**/*.test.{ts,tsx,js}",
+        "**/*.spec.{ts,tsx,js}",
+        "tests/**/*.{ts,tsx,js}"
+      ],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
 }

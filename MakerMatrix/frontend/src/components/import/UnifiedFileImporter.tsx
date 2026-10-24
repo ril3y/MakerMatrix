@@ -70,10 +70,7 @@ const UnifiedFileImporter: React.FC<UnifiedFileImporterProps> = ({
   }
 
   const extractOrderInfoFromFilename = useCallback(async (filename: string) => {
-    console.log('[UnifiedFileImporter] extractOrderInfoFromFilename called with:', filename)
     const fileInfo = extractFilenameInfo(filename)
-    console.log('[UnifiedFileImporter] fileInfo returned:', fileInfo)
-    console.log('[UnifiedFileImporter] order_info to return:', fileInfo.order_info)
     return fileInfo.order_info
   }, [])
 

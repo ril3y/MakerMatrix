@@ -9,6 +9,7 @@ import React, { useState } from 'react'
 import { X, AlertTriangle, CheckCircle, Settings } from 'lucide-react'
 import type { SupplierConfigCreate } from '../../services/supplier.service'
 import { supplierService } from '../../services/supplier.service'
+import { getErrorMessage } from '../../services/api'
 import { DigiKeyConfigForm } from './DigiKeyConfigForm'
 import { LCSCConfigForm } from './LCSCConfigForm'
 import { MouserConfigForm } from './MouserConfigForm'
@@ -143,9 +144,7 @@ export const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onS
       await supplierService.createSupplier(configForAPI)
       onSuccess()
     } catch (err) {
-      const error = err as { response?: { data?: { detail?: string } } }
-      const errorMessage = error.response?.data?.detail || 'Failed to create supplier configuration'
-      setErrors([errorMessage])
+      setErrors([getErrorMessage(err, 'Failed to create supplier configuration')])
     } finally {
       setLoading(false)
     }

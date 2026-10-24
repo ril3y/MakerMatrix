@@ -22,8 +22,14 @@ def mock_get_current_user():
     return user
 
 
-# Override the dependency
-app.dependency_overrides[get_current_user] = mock_get_current_user
+# Scope the override to this module; setting it at import time leaked it
+# into every later test in the session.
+@pytest.fixture(autouse=True, scope="module")
+def _override_get_current_user():
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
 
 client = TestClient(app)
 

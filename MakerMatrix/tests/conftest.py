@@ -54,6 +54,20 @@ collect_ignore = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _reset_guest_rate_limits():
+    """Clear the in-process guest rate-limit counters between tests.
+
+    Every unauthenticated TestClient request is counted against the same guest
+    bucket, so a full-suite run otherwise trips the 100/min limit and later
+    tests get 429s instead of the status they assert on.
+    """
+    from MakerMatrix.middleware.guest_rate_limit import storage
+
+    storage.reset()
+    yield
+
+
 @pytest.fixture(scope="session")
 def test_app():
     """Create a test FastAPI application"""

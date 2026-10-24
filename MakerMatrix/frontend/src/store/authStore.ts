@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import type { User, LoginRequest } from '@/types/auth'
 import { authService } from '@/services/auth.service'
+import { getErrorMessage } from '@/services/api'
 import { toast } from 'react-hot-toast'
 
 interface AuthState {
@@ -41,11 +42,7 @@ export const useAuthStore = create<AuthState>()(
             })
             toast.success('Login successful!')
           } catch (error: unknown) {
-            const errorMessage =
-              error instanceof Error
-                ? error.message
-                : (error as { response?: { data?: { detail?: string } } })?.response?.data
-                    ?.detail || 'Login failed'
+            const errorMessage = getErrorMessage(error, 'Login failed')
             set({
               isLoading: false,
               error: errorMessage,
@@ -65,11 +62,7 @@ export const useAuthStore = create<AuthState>()(
             })
             toast.success('Viewing as guest - read-only access')
           } catch (error: unknown) {
-            const errorMessage =
-              error instanceof Error
-                ? error.message
-                : (error as { response?: { data?: { detail?: string } } })?.response?.data
-                    ?.detail || 'Guest login failed'
+            const errorMessage = getErrorMessage(error, 'Guest login failed')
             set({
               isLoading: false,
               error: errorMessage,
@@ -127,11 +120,7 @@ export const useAuthStore = create<AuthState>()(
             toast.success('Password updated successfully')
             set({ isLoading: false })
           } catch (error: unknown) {
-            const errorMessage =
-              error instanceof Error
-                ? error.message
-                : (error as { response?: { data?: { detail?: string } } })?.response?.data
-                    ?.detail || 'Failed to update password'
+            const errorMessage = getErrorMessage(error, 'Failed to update password')
             set({
               isLoading: false,
               error: errorMessage,

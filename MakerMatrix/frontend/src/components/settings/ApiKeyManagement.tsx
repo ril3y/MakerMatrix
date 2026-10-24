@@ -100,9 +100,7 @@ const ApiKeyManagement = () => {
 
   const createApiKey = async () => {
     try {
-      console.log('Creating API key with data:', newKeyData)
       const result = await apiKeyService.createApiKey(newKeyData)
-      console.log('Create API key result:', result)
 
       // Extract the API key from the response
       const apiKey = result.api_key

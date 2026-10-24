@@ -6,6 +6,7 @@ verifying that backend API changes trigger correct websocket messages.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import json
 import websockets
@@ -89,7 +90,7 @@ def api_token(test_client):
     return response.json()["access_token"]
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def ws_collector():
     """Create a websocket message collector"""
     collector = WebSocketMessageCollector()

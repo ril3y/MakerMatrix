@@ -81,6 +81,10 @@ def ensure_admin_user():
     from MakerMatrix.scripts.setup_admin import setup_default_roles, setup_default_admin
 
     try:
+        # The module-level TestClient never runs the app lifespan, so the
+        # tables don't exist on a fresh database unless we create them here.
+        create_db_and_tables()
+
         # Ensure admin user exists in main database
         user_repo = UserRepository()
 
